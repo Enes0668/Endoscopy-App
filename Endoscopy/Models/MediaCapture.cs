@@ -71,4 +71,12 @@ public class MediaCapture
     /// ile hesaplanabilir; DB'de ayrıca saklamıyoruz, türetilmiş bir değer.
     /// </summary>
     public long? FrameCount { get; set; }
+
+    /// <summary>
+    /// Dosyanın diskteki gerçek boyutu (byte). Hem fotoğraf hem video için doldurulur
+    /// (fotoğrafta kayıt anında, videoda dosya kapanınca — çünkü video sürerken boyut
+    /// hâlâ büyüyor olur). Disk doluluğu takibiyle ilişkili: hangi kayıtların ne kadar
+    /// yer kapladığını dosyayı tek tek açmadan görmek için.
+    /// </summary>
+    public long? FileSizeBytes { get; set; }
 }

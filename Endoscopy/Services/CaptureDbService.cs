@@ -25,7 +25,8 @@ public record CaptureListItem(
     string? RoomName,
     int? Width,
     int? Height,
-    long? FrameCount);
+    long? FrameCount,
+    long? FileSizeBytes);
 
 /// <summary>Bir capture oluştururken "kime/hangi işleme ait" bilgisini taşıyan opsiyonel paket.</summary>
 public record CaptureContext(
@@ -55,8 +56,10 @@ public class CaptureDbService
     /// Yeni bir capture satırı ekler. Fotoğrafta status daima Completed, videoda
     /// Recording ile başlar. "context" opsiyonel — arayüzden hasta/doktor/prosedür
     /// bilgisi girilmediyse null geçilebilir, alanlar boş kalır (zorunlu değil).
+    /// "fileSizeBytes" fotoğrafta hemen biliniyor (dosya o an tam yazıldı); videoda
+    /// null geçilir, kayıt bitince CompleteVideoCapture ile doldurulur.
     /// </summary>
-    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null)
+    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null, long? fileSizeBytes = null)
     {
         var entity = new MediaCapture
         {
@@ -69,7 +72,8 @@ public class CaptureDbService
             PatientName = context?.PatientName,
             DoctorName = context?.DoctorName,
             ProcedureType = context?.ProcedureType,
-            RoomName = context?.RoomName
+            RoomName = context?.RoomName,
+            FileSizeBytes = fileSizeBytes
         };
 
         _db.MediaCaptures.Add(entity);
@@ -80,11 +84,11 @@ public class CaptureDbService
     /// <summary>
     /// Devam eden video kaydını bitmiş olarak işaretler. "status" normalde
     /// Completed (dosya doğrulandı) ya da Corrupted (dosya geri okunamadı) olur.
-    /// Width/Height/FrameCount opsiyonel — otomatik durma senaryolarında bile
-    /// (CameraService artık her zaman ölçüp döndürüyor) doldurulabilir olmalı,
+    /// Width/Height/FrameCount/FileSizeBytes opsiyonel — otomatik durma senaryolarında
+    /// bile (CameraService artık her zaman ölçüp döndürüyor) doldurulabilir olmalı,
     /// ama null geçilirse mevcut değer değişmeden kalır (bilinmiyorsa ezmiyoruz).
     /// </summary>
-    public void CompleteVideoCapture(long id, DateTimeOffset endedAt, long durationMs, CaptureStatus status = CaptureStatus.Completed, int? width = null, int? height = null, long? frameCount = null)
+    public void CompleteVideoCapture(long id, DateTimeOffset endedAt, long durationMs, CaptureStatus status = CaptureStatus.Completed, int? width = null, int? height = null, long? frameCount = null, long? fileSizeBytes = null)
     {
         var entity = _db.MediaCaptures.Find(id);
         if (entity == null)
@@ -99,6 +103,7 @@ public class CaptureDbService
         if (width.HasValue) entity.Width = width;
         if (height.HasValue) entity.Height = height;
         if (frameCount.HasValue) entity.FrameCount = frameCount;
+        if (fileSizeBytes.HasValue) entity.FileSizeBytes = fileSizeBytes;
         _db.SaveChanges();
     }
 
@@ -136,7 +141,8 @@ public class CaptureDbService
                 c.RoomName,
                 c.Width,
                 c.Height,
-                c.FrameCount))
+                c.FrameCount,
+                c.FileSizeBytes))
             .ToList();
     }
 
@@ -175,6 +181,12 @@ public class CaptureDbService
             capture.Status = CaptureStatus.Interrupted;
             capture.EndedAt = endedAt;
             capture.DurationMs = (long)(endedAt - capture.CapturedAt).TotalMilliseconds;
+
+            try
+            {
+                if (File.Exists(physicalPath)) capture.FileSizeBytes = new FileInfo(physicalPath).Length;
+            }
+            catch { /* boyut okunamazsa önemli değil, kritik bilgi değil */ }
         }
 
         if (staleRows.Count > 0)

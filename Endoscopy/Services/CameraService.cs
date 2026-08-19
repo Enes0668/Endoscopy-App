@@ -3,14 +3,14 @@ using OpenCvSharp;
 namespace Endoscopy.Services;
 
 /// <summary>"Stop" isteğiyle (kullanıcı tetiklemesiyle) düzgün durdurulan kaydın sonucu.</summary>
-public record VideoStopResult(string FilePath, bool IsPlaybackVerified, int Width, int Height, long FrameCount);
+public record VideoStopResult(string FilePath, bool IsPlaybackVerified, int Width, int Height, long FrameCount, long FileSizeBytes);
 
 /// <summary>
 /// Kaydın kullanıcı isteği OLMADAN (kamera koptu, disk doldu vb.) otomatik
 /// durdurulduğunu bildirir. Bu durumda çağrıyı yapan bir HTTP isteği yok,
 /// bu yüzden sonucu event üzerinden dışarı veriyoruz.
 /// </summary>
-public record VideoAutoStopInfo(string FilePath, bool IsPlaybackVerified, string Reason, int Width, int Height, long FrameCount);
+public record VideoAutoStopInfo(string FilePath, bool IsPlaybackVerified, string Reason, int Width, int Height, long FrameCount, long FileSizeBytes);
 
 /// <summary>
 /// Bilgisayarın dahili/USB kamerasını arka planda sürekli okuyan servis.
@@ -264,12 +264,12 @@ public class CameraService : IHostedService, IDisposable
         var closed = CloseCurrentRecordingFile();
         if (closed == null) return null;
 
-        var (filePath, verified, width, height, frameCount) = closed.Value;
+        var (filePath, verified, width, height, frameCount, fileSizeBytes) = closed.Value;
         _logger.LogInformation(
-            "Video kaydı durduruldu: {Path} ({Width}x{Height}, {FrameCount} kare, oynatma doğrulaması: {Verified})",
-            filePath, width, height, frameCount, verified ? "başarılı" : "BAŞARISIZ");
+            "Video kaydı durduruldu: {Path} ({Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, oynatma doğrulaması: {Verified})",
+            filePath, width, height, frameCount, fileSizeBytes, verified ? "başarılı" : "BAŞARISIZ");
 
-        return new VideoStopResult(filePath, verified, width, height, frameCount);
+        return new VideoStopResult(filePath, verified, width, height, frameCount, fileSizeBytes);
     }
 
     /// <summary>
@@ -281,20 +281,22 @@ public class CameraService : IHostedService, IDisposable
         var closed = CloseCurrentRecordingFile();
         if (closed == null) return;
 
-        var (filePath, verified, width, height, frameCount) = closed.Value;
+        var (filePath, verified, width, height, frameCount, fileSizeBytes) = closed.Value;
         _logger.LogError(
-            "Video kaydı otomatik durduruldu ({Reason}): {Path} ({Width}x{Height}, {FrameCount} kare, oynatma doğrulaması: {Verified})",
-            reason, filePath, width, height, frameCount, verified ? "başarılı" : "BAŞARISIZ");
+            "Video kaydı otomatik durduruldu ({Reason}): {Path} ({Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, oynatma doğrulaması: {Verified})",
+            reason, filePath, width, height, frameCount, fileSizeBytes, verified ? "başarılı" : "BAŞARISIZ");
 
-        RecordingAutoStopped?.Invoke(new VideoAutoStopInfo(filePath, verified, reason, width, height, frameCount));
+        RecordingAutoStopped?.Invoke(new VideoAutoStopInfo(filePath, verified, reason, width, height, frameCount, fileSizeBytes));
     }
 
     /// <summary>
     /// Ortak kapatma mantığı: writer'ı finalize eder, dosyayı geri okuyarak
-    /// doğrular. Kayıt zaten durmuşsa null döner (iki taraf aynı anda
-    /// durdurmaya çalışırsa ikinci çağıran bunu anlar).
+    /// doğrular ve gerçek dosya boyutunu ölçer (video sürerken boyut hâlâ
+    /// büyüyor olacağından, ancak dosya kapandıktan sonra kesin/nihai olur).
+    /// Kayıt zaten durmuşsa null döner (iki taraf aynı anda durdurmaya
+    /// çalışırsa ikinci çağıran bunu anlar).
     /// </summary>
-    private (string FilePath, bool Verified, int Width, int Height, long FrameCount)? CloseCurrentRecordingFile()
+    private (string FilePath, bool Verified, int Width, int Height, long FrameCount, long FileSizeBytes)? CloseCurrentRecordingFile()
     {
         string? filePath;
         int width, height;
@@ -317,7 +319,15 @@ public class CameraService : IHostedService, IDisposable
         if (filePath == null) return null;
 
         var verified = VerifyRecordedFile(filePath);
-        return (filePath, verified, width, height, frameCount);
+
+        long fileSizeBytes = 0;
+        try
+        {
+            if (File.Exists(filePath)) fileSizeBytes = new FileInfo(filePath).Length;
+        }
+        catch { /* boyut okunamazsa 0 kalsın, kritik bir bilgi değil */ }
+
+        return (filePath, verified, width, height, frameCount, fileSizeBytes);
     }
 
     /// <summary>

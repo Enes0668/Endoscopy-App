@@ -97,7 +97,8 @@ public class CapturesController : ControllerBase
         frame.SaveImage(absoluteFilePath);
 
         var relativePath = $"/storage/{fileName}";
-        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext());
+        var fileSizeBytes = new FileInfo(absoluteFilePath).Length;
+        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes);
 
         _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}", id, fileName);
 
@@ -180,11 +181,11 @@ public class CapturesController : ControllerBase
         var durationMs = (long)(endedAt - recording.CapturedAt).TotalMilliseconds;
         var finalStatus = stopResult.IsPlaybackVerified ? CaptureStatus.Completed : CaptureStatus.Corrupted;
 
-        _db.CompleteVideoCapture(recording.Id, endedAt, durationMs, finalStatus, stopResult.Width, stopResult.Height, stopResult.FrameCount);
+        _db.CompleteVideoCapture(recording.Id, endedAt, durationMs, finalStatus, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes);
 
         _logger.LogInformation(
-            "Video kaydı durdu: Id={Id}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, Doğrulandı={Verified}",
-            recording.Id, durationMs, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.IsPlaybackVerified);
+            "Video kaydı durdu: Id={Id}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, Doğrulandı={Verified}",
+            recording.Id, durationMs, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes, stopResult.IsPlaybackVerified);
 
         return Ok(new
         {
@@ -194,7 +195,8 @@ public class CapturesController : ControllerBase
             verified = stopResult.IsPlaybackVerified,
             width = stopResult.Width,
             height = stopResult.Height,
-            frameCount = stopResult.FrameCount
+            frameCount = stopResult.FrameCount,
+            fileSizeBytes = stopResult.FileSizeBytes
         });
     }
 

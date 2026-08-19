@@ -79,7 +79,7 @@ app.Services.GetRequiredService<CameraService>().RecordingAutoStopped += info =>
     // Otomatik durma her zaman Interrupted — kullanıcının normal "stop"
     // akışından ayırt edilsin diye. Dosyanın oynatılabilir olup olmadığı
     // ayrıca log'da duruyor (bkz. CameraService), Status'u karmaşıklaştırmıyoruz.
-    db.CompleteVideoCapture(active.Id, endedAt, durationMs, CaptureStatus.Interrupted, info.Width, info.Height, info.FrameCount);
+    db.CompleteVideoCapture(active.Id, endedAt, durationMs, CaptureStatus.Interrupted, info.Width, info.Height, info.FrameCount, info.FileSizeBytes);
 
     logger.LogWarning(
         "Video kaydı otomatik durduruldu ve DB'de 'Interrupted' işaretlendi: Id={Id}, Sebep={Reason}, Doğrulandı={Verified}",

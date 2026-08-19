@@ -288,16 +288,33 @@
       }
     }
 
+    // Byte'ı okunaklı birime çevirir (KB/MB) — Windows Özellikler penceresindeki
+    // "Size" alanının karşılığı, hem foto hem video için gösteriliyor.
+    function formatFileSize(bytes) {
+      if (bytes == null) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
     function typeBadge(item) {
-      if (item.captureType === 'video') {
-        switch (item.status) {
-          case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
-          case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
-          case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
-          default: return '<span class="badge badge-video">🎥 Video</span>';
+      const badge = (() => {
+        if (item.captureType === 'video') {
+          switch (item.status) {
+            case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
+            case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
+            case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
+            default: return '<span class="badge badge-video">🎥 Video</span>';
+          }
         }
-      }
-      return '<span class="badge badge-photo">📷 Fotoğraf</span>';
+        return '<span class="badge badge-photo">📷 Fotoğraf</span>';
+      })();
+
+      const sizeLine = item.fileSizeBytes != null
+        ? `<br><span style="color:#999;font-size:11px">${formatFileSize(item.fileSizeBytes)}</span>`
+        : '';
+
+      return badge + sizeLine;
     }
 
     function durationOrStatus(item) {
