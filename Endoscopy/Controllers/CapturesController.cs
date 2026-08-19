@@ -11,9 +11,10 @@ public record CaptureRequest(
     string? PatientName = null,
     string? DoctorName = null,
     string? ProcedureType = null,
-    string? RoomName = null)
+    string? RoomName = null,
+    string? CreatedByName = null)
 {
-    public CaptureContext ToContext() => new(PatientIdentifier, PatientName, DoctorName, ProcedureType, RoomName);
+    public CaptureContext ToContext() => new(PatientIdentifier, PatientName, DoctorName, ProcedureType, RoomName, CreatedByName);
 }
 
 [ApiController]
@@ -211,10 +212,74 @@ public class CapturesController : ControllerBase
         return Ok(new { isRecording = _camera.IsRecording, capture = _db.GetActiveRecording() });
     }
 
-    /// <summary>Veritabanındaki tüm kayıtları (fotoğraf + video) en yeniden eskiye listeler.</summary>
+    /// <summary>Aktif (silinmemiş) tüm kayıtları (fotoğraf + video) en yeniden eskiye listeler.</summary>
     [HttpGet("captures")]
     public IActionResult GetCaptures()
     {
         return Ok(_db.GetCaptures());
+    }
+
+    /// <summary>
+    /// Bir kaydı siler — ama gerçekten değil: soft-delete (IsActive=false).
+    /// Dosya diskten kaldırılmaz, DB satırı da kalıcı silinmez, sadece normal
+    /// listelemeden gizlenir. Tıbbi kayıt olduğu için kalıcı/geri dönüşsüz
+    /// silme bilerek desteklenmiyor.
+    /// </summary>
+    [HttpDelete("captures/{id}")]
+    public IActionResult DeleteCapture(long id)
+    {
+        var deleted = _db.DeactivateCapture(id);
+        if (!deleted)
+        {
+            return NotFound(new { message = $"Id={id} ile eşleşen kayıt bulunamadı." });
+        }
+
+        _logger.LogInformation("Capture silindi (soft-delete): Id={Id}", id);
+        return Ok(new { id, message = "Kayıt listeden kaldırıldı (dosya ve DB satırı hâlâ duruyor)." });
+    }
+
+    /// <summary>
+    /// Bir kaydın Width/Height/FrameCount/FileSizeBytes bilgisini, dosyanın
+    /// kendisini YENİDEN OKUYARAK tazeler. "Bu alanlar DB'de eklenmeden önce
+    /// kaydedilmiş eski dosyaları doldur" (backfill) ya da "bir şeyler
+    /// yanlış görünüyor, dosyadan tekrar ölç" senaryoları için — Windows'un
+    /// Özellikler penceresiyle bir ilgisi yok, doğrudan dosyayı OpenCV ile açıp
+    /// ölçüyoruz (bkz. CameraService.ReadVideoFileMetadata).
+    /// </summary>
+    [HttpPost("captures/{id}/refresh-metadata")]
+    public IActionResult RefreshMetadata(long id)
+    {
+        var capture = _db.GetById(id);
+        if (capture == null)
+        {
+            return NotFound(new { message = $"Id={id} ile eşleşen kayıt bulunamadı." });
+        }
+
+        var physicalPath = Path.Combine(_env.ContentRootPath, capture.FilePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        if (!System.IO.File.Exists(physicalPath))
+        {
+            return NotFound(new { message = "Dosya diskte bulunamadı, metadata yenilenemedi (silinmiş/taşınmış olabilir)." });
+        }
+
+        var fileSizeBytes = new FileInfo(physicalPath).Length;
+        int? width = null, height = null;
+        long? frameCount = null;
+
+        if (capture.CaptureType == CaptureType.Video)
+        {
+            var meta = _camera.ReadVideoFileMetadata(physicalPath);
+            if (meta != null)
+            {
+                (width, height, frameCount) = meta.Value;
+            }
+        }
+
+        _db.UpdateFileMetadata(id, width, height, frameCount, fileSizeBytes);
+
+        _logger.LogInformation(
+            "Metadata yenilendi: Id={Id}, {Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte",
+            id, width, height, frameCount, fileSizeBytes);
+
+        return Ok(new { id, width, height, frameCount, fileSizeBytes });
     }
 }

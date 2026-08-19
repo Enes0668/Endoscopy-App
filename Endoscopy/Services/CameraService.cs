@@ -466,6 +466,28 @@ public class CameraService : IHostedService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Var olan bir video dosyasını (kayıt sürecinin dışında, elle) yeniden açıp
+    /// gerçek genişlik/yükseklik/kare sayısını döner. "Backfill" senaryosu için:
+    /// bu alanlar eklenmeden önce kaydedilmiş eski dosyaların DB'sini sonradan
+    /// doldurmak. VideoCapture'ın kendi container metadata'sından (moov'daki
+    /// bilgiden) okunuyor — tüm kareleri tek tek okumaya gerek yok, hızlı.
+    /// Dosya açılamazsa null döner.
+    /// </summary>
+    public (int Width, int Height, long FrameCount)? ReadVideoFileMetadata(string path)
+    {
+        try
+        {
+            using var reader = new VideoCapture(path);
+            if (!reader.IsOpened()) return null;
+            return (reader.FrameWidth, reader.FrameHeight, (long)reader.FrameCount);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>Web'e (MJPEG akışı için) JPEG olarak kodlanmış son kareyi döner.</summary>
     public byte[]? GetLatestFrameJpeg()
     {

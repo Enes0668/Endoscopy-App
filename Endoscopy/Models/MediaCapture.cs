@@ -79,4 +79,22 @@ public class MediaCapture
     /// yer kapladığını dosyayı tek tek açmadan görmek için.
     /// </summary>
     public long? FileSizeBytes { get; set; }
+
+    /// <summary>
+    /// Soft-delete bayrağı: false olursa bu kayıt "silinmiş" sayılır ama
+    /// fiziksel olarak veritabanından kaldırılmaz — tıbbi kayıt olduğu için
+    /// gerçek silme riskli (yanlışlıkla ya da kötü niyetle kalıcı kayıp
+    /// olmasın diye). Normal listeleme (GetCaptures) bu satırları göstermez,
+    /// ama veri hâlâ DB'de duruyor, gerekirse geri getirilebilir.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Bu kaydı kimin oluşturduğu — şimdilik geçici, serbest metin bir alan.
+    /// Sistemde henüz giriş/kimlik doğrulama olmadığı için gerçek bir kullanıcı
+    /// hesabına referans veremiyoruz (TriggerSource sadece "neyle" tetiklendiğini
+    /// söylüyor, "kim" olduğunu değil); kimlik doğrulama eklenince bu alan
+    /// gerçek bir kullanıcı ID'sine dönüştürülebilir.
+    /// </summary>
+    public string? CreatedByName { get; set; }
 }

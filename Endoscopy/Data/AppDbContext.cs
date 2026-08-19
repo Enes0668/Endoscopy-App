@@ -50,6 +50,10 @@ public class AppDbContext : DbContext
             // pratik değil, DB üzerinden aranmalı").
             entity.HasIndex(e => e.PatientIdentifier);
             entity.HasIndex(e => e.DoctorName);
+
+            // GetCaptures her çağrıda "WHERE IsActive" filtresi uyguluyor —
+            // listeleme en sık çalışan sorgu olduğu için bu index'in kazancı var.
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }

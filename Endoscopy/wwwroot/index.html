@@ -87,6 +87,10 @@
           <label for="ctx-room-name">Oda / İstasyon</label>
           <input id="ctx-room-name" type="text" placeholder="örn. Endoskopi Oda 3" />
         </div>
+        <div>
+          <label for="ctx-created-by">Oluşturan</label>
+          <input id="ctx-created-by" type="text" placeholder="örn. Hemşire Zeynep" />
+        </div>
       </div>
       <div class="context-note">Bu bilgiler isteğe bağlıdır; boş bırakılırsa kayıt yine de yapılır, ama listede kime ait olduğu görünmez.</div>
 
@@ -107,6 +111,7 @@
             <th>Tetikleyici</th>
             <th>Zaman (UTC)</th>
             <th>Süre / Durum</th>
+            <th>İşlem</th>
           </tr>
         </thead>
         <tbody id="captures-table"></tbody>
@@ -136,7 +141,8 @@
         patientName: val('ctx-patient-name'),
         doctorName: val('ctx-doctor-name'),
         procedureType: val('ctx-procedure-type'),
-        roomName: val('ctx-room-name')
+        roomName: val('ctx-room-name'),
+        createdByName: val('ctx-created-by')
       };
     }
 
@@ -349,6 +355,7 @@
       if (item.doctorName) parts.push(item.doctorName);
       if (item.procedureType) parts.push(item.procedureType);
       if (item.roomName) parts.push(`<span style="color:#999">${item.roomName}</span>`);
+      if (item.createdByName) parts.push(`<span style="color:#999">Oluşturan: ${item.createdByName}</span>`);
 
       return parts.length > 0
         ? parts.join('<br>')
@@ -375,11 +382,20 @@
       tbody.innerHTML = '';
 
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
         return;
       }
 
       data.forEach(item => {
+        // Kayıt sürerken silmeye/yenilemeye izin vermiyoruz — dosya henüz kapanmadı.
+        const isRecordingRow = item.status === 'recording';
+        const deleteBtn = isRecordingRow
+          ? ''
+          : `<button class="secondary" style="background:#cc0000;padding:6px 10px;font-size:12px;margin:0;" onclick="deleteCapture(${item.id})">🗑 Sil</button>`;
+        const refreshBtn = isRecordingRow
+          ? ''
+          : `<button class="secondary" style="background:#555;padding:6px 10px;font-size:12px;margin:0;" onclick="refreshMetadata(${item.id})">🔄 Yenile</button>`;
+
         const row = `
           <tr>
             <td>${previewCell(item)}</td>
@@ -389,10 +405,55 @@
             <td>${item.triggerSource}</td>
             <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
             <td>${durationOrStatus(item)}</td>
+            <td>${refreshBtn} ${deleteBtn}</td>
           </tr>
         `;
         tbody.innerHTML += row;
       });
+    }
+
+    // Dosyayı YENİDEN OKUYUP (Windows Özellikler'le hiç ilgisi yok, doğrudan
+    // dosyanın kendisi) Width/Height/FrameCount/FileSizeBytes'ı tazeler.
+    // Bu alanlar eklenmeden önce kaydedilmiş eski satırları doldurmak
+    // (backfill) ya da şüpheli görünen bir değeri yeniden ölçmek için.
+    async function refreshMetadata(id) {
+      statusEl.textContent = `Id=${id} için dosya bilgileri yeniden okunuyor...`;
+      try {
+        const response = await fetch(`/api/captures/${id}/refresh-metadata`, { method: 'POST' });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Yenileme hatası: ' + (err.message || response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        statusEl.textContent = `Id=${id} güncellendi: ${data.width ?? '—'}×${data.height ?? '—'}, ${data.frameCount ?? '—'} kare, ${formatFileSize(data.fileSizeBytes)}.`;
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    // Soft-delete: dosya ve DB satırı silinmiyor, sadece listeden gizleniyor
+    // (bkz. IsActive alanı). Tıbbi kayıt olduğu için kalıcı silme yok.
+    async function deleteCapture(id) {
+      if (!confirm(`Id=${id} olan kaydı listeden kaldırmak istediğinize emin misiniz? (Dosya silinmez, sadece listeden gizlenir.)`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/captures/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Silme hatası: ' + (err.message || response.statusText);
+          return;
+        }
+
+        statusEl.textContent = `Id=${id} listeden kaldırıldı.`;
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
     }
 
     updateButtonForMode();

@@ -26,7 +26,8 @@ public record CaptureListItem(
     int? Width,
     int? Height,
     long? FrameCount,
-    long? FileSizeBytes);
+    long? FileSizeBytes,
+    string? CreatedByName);
 
 /// <summary>Bir capture oluştururken "kime/hangi işleme ait" bilgisini taşıyan opsiyonel paket.</summary>
 public record CaptureContext(
@@ -34,7 +35,8 @@ public record CaptureContext(
     string? PatientName = null,
     string? DoctorName = null,
     string? ProcedureType = null,
-    string? RoomName = null);
+    string? RoomName = null,
+    string? CreatedByName = null);
 
 /// <summary>
 /// PostgreSQL üzerinde EF Core ile çalışan veri erişim katmanı. Şema artık
@@ -73,7 +75,8 @@ public class CaptureDbService
             DoctorName = context?.DoctorName,
             ProcedureType = context?.ProcedureType,
             RoomName = context?.RoomName,
-            FileSizeBytes = fileSizeBytes
+            FileSizeBytes = fileSizeBytes,
+            CreatedByName = context?.CreatedByName
         };
 
         _db.MediaCaptures.Add(entity);
@@ -107,6 +110,27 @@ public class CaptureDbService
         _db.SaveChanges();
     }
 
+    /// <summary>Tek bir kaydı Id'sine göre döner (entity, yazma amaçlı) — bulunamazsa null.</summary>
+    public MediaCapture? GetById(long id) => _db.MediaCaptures.Find(id);
+
+    /// <summary>
+    /// "Yenile" butonu için: dosyadan yeniden okunan Width/Height/FrameCount/
+    /// FileSizeBytes ile mevcut satırı üzerine yazar (backfill / manuel düzeltme).
+    /// Null geçilen alan dokunulmadan kalır.
+    /// </summary>
+    public bool UpdateFileMetadata(long id, int? width, int? height, long? frameCount, long? fileSizeBytes)
+    {
+        var entity = _db.MediaCaptures.Find(id);
+        if (entity == null) return false;
+
+        if (width.HasValue) entity.Width = width;
+        if (height.HasValue) entity.Height = height;
+        if (frameCount.HasValue) entity.FrameCount = frameCount;
+        if (fileSizeBytes.HasValue) entity.FileSizeBytes = fileSizeBytes;
+        _db.SaveChanges();
+        return true;
+    }
+
     /// <summary>
     /// Status=Recording olan en güncel satırı döner. Sayfa yenilendiğinde
     /// ya da sunucu yeniden başlatıldığında "hâlâ kayıt devam ediyor mu?"
@@ -120,10 +144,15 @@ public class CaptureDbService
             .FirstOrDefault();
     }
 
-    /// <summary>Tüm kayıtları (fotoğraf + video) en yeniden eskiye döner.</summary>
+    /// <summary>
+    /// Aktif (silinmemiş) kayıtları (fotoğraf + video) en yeniden eskiye döner.
+    /// Soft-delete edilmiş (IsActive=false) satırlar bu listede görünmez —
+    /// veri hâlâ DB'de duruyor, sadece normal listelemeden gizleniyor.
+    /// </summary>
     public List<CaptureListItem> GetCaptures()
     {
         return _db.MediaCaptures
+            .Where(c => c.IsActive)
             .OrderByDescending(c => c.CapturedAt)
             .Select(c => new CaptureListItem(
                 c.Id,
@@ -142,8 +171,26 @@ public class CaptureDbService
                 c.Width,
                 c.Height,
                 c.FrameCount,
-                c.FileSizeBytes))
+                c.FileSizeBytes,
+                c.CreatedByName))
             .ToList();
+    }
+
+    /// <summary>
+    /// Bir kaydı soft-delete eder (IsActive=false). Dosya diskten silinmez,
+    /// DB satırı da kalıcı olarak kaldırılmaz — sadece normal listelemeden
+    /// (GetCaptures) gizlenir. Tıbbi kayıt olduğu için kalıcı/geri dönüşsüz
+    /// silme bilerek yapılmıyor. Bulunamazsa false döner.
+    /// </summary>
+    public bool DeactivateCapture(long id)
+    {
+        var entity = _db.MediaCaptures.Find(id);
+        if (entity == null) return false;
+
+        entity.IsActive = false;
+        _db.SaveChanges();
+        _logger.LogInformation("Capture soft-delete edildi: Id={Id}", id);
+        return true;
     }
 
     /// <summary>
