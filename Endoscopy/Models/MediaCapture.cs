@@ -71,7 +71,4 @@ public class MediaCapture
     /// ile hesaplanabilir; DB'de ayrıca saklamıyoruz, türetilmiş bir değer.
     /// </summary>
     public long? FrameCount { get; set; }
-
-    /// <summary>Bir capture'a birden fazla AI bulgusu bağlanabilir (EF Core navigation property).</summary>
-    public List<AiFinding> Findings { get; set; } = new();
 }

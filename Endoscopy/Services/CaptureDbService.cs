@@ -7,9 +7,7 @@ namespace Endoscopy.Services;
 /// <summary>
 /// "/api/captures" listesinde ve durum sorgularında dönen düz (flat) okuma
 /// modeli. MediaCapture entity'si write tarafında (EF Core ile ekleme/güncelleme)
-/// kullanılıyor; bu kayıt ise sadece okuma/JSON çıktısı için — yani bir capture'ın
-/// en güncel AI bulgusunu, ayrı bir "findings" dizisi yerine düz alanlar halinde
-/// (frontend'in beklediği şekilde) taşıyor.
+/// kullanılıyor; bu kayıt ise sadece okuma/JSON çıktısı için.
 /// </summary>
 public record CaptureListItem(
     long Id,
@@ -27,10 +25,7 @@ public record CaptureListItem(
     string? RoomName,
     int? Width,
     int? Height,
-    long? FrameCount,
-    string? FindingType,
-    string? FindingDescription,
-    double? FindingConfidence);
+    long? FrameCount);
 
 /// <summary>Bir capture oluştururken "kime/hangi işleme ait" bilgisini taşıyan opsiyonel paket.</summary>
 public record CaptureContext(
@@ -120,23 +115,7 @@ public class CaptureDbService
             .FirstOrDefault();
     }
 
-    public long InsertFinding(long captureId, string findingType, string description, double confidence)
-    {
-        var finding = new AiFinding
-        {
-            CaptureId = captureId,
-            FindingType = findingType,
-            Description = description,
-            Confidence = confidence,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        _db.AiFindings.Add(finding);
-        _db.SaveChanges();
-        return finding.Id;
-    }
-
-    /// <summary>Tüm kayıtları (fotoğraf + video) en yeniden eskiye, her birinin en güncel AI bulgusuyla birlikte döner.</summary>
+    /// <summary>Tüm kayıtları (fotoğraf + video) en yeniden eskiye döner.</summary>
     public List<CaptureListItem> GetCaptures()
     {
         return _db.MediaCaptures
@@ -157,10 +136,7 @@ public class CaptureDbService
                 c.RoomName,
                 c.Width,
                 c.Height,
-                c.FrameCount,
-                c.Findings.OrderByDescending(f => f.CreatedAt).Select(f => f.FindingType).FirstOrDefault(),
-                c.Findings.OrderByDescending(f => f.CreatedAt).Select(f => f.Description).FirstOrDefault(),
-                c.Findings.OrderByDescending(f => f.CreatedAt).Select(f => (double?)f.Confidence).FirstOrDefault()))
+                c.FrameCount))
             .ToList();
     }
 

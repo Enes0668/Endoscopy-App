@@ -22,15 +22,13 @@ public class CapturesController : ControllerBase
 {
     private readonly CameraService _camera;
     private readonly CaptureDbService _db;
-    private readonly AnthropicVisionService _vision;
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<CapturesController> _logger;
 
-    public CapturesController(CameraService camera, CaptureDbService db, AnthropicVisionService vision, IWebHostEnvironment env, ILogger<CapturesController> logger)
+    public CapturesController(CameraService camera, CaptureDbService db, IWebHostEnvironment env, ILogger<CapturesController> logger)
     {
         _camera = camera;
         _db = db;
-        _vision = vision;
         _env = env;
         _logger = logger;
     }
@@ -77,7 +75,7 @@ public class CapturesController : ControllerBase
     /// Kare diske .jpg olarak yazılır ve SQLite'a satır olarak eklenir.
     /// </summary>
     [HttpPost("capture")]
-    public async Task<IActionResult> Capture([FromBody] CaptureRequest? request, CancellationToken cancellationToken)
+    public IActionResult Capture([FromBody] CaptureRequest? request)
     {
         if (!_camera.IsCameraAvailable)
         {
@@ -103,22 +101,7 @@ public class CapturesController : ControllerBase
 
         _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}", id, fileName);
 
-        // Kare kaydedildikten hemen sonra Claude ile senkron analiz ediliyor.
-        // Analiz başarısız olsa/atlansa bile capture kaydı zaten diskte ve DB'de duruyor.
-        object? finding = null;
-        if (_vision.IsConfigured)
-        {
-            var jpegBytes = await System.IO.File.ReadAllBytesAsync(absoluteFilePath, cancellationToken);
-            var result = await _vision.AnalyzeFrameAsync(jpegBytes, cancellationToken);
-            if (result != null)
-            {
-                _db.InsertFinding(id, result.FindingType, result.Description, result.Confidence);
-                finding = new { result.FindingType, result.Description, result.Confidence };
-                _logger.LogInformation("AI analizi tamamlandı: CaptureId={Id}, FindingType={FindingType}", id, result.FindingType);
-            }
-        }
-
-        return Ok(new { id, filePath = relativePath, capturedAt, finding });
+        return Ok(new { id, filePath = relativePath, capturedAt });
     }
 
     /// <summary>

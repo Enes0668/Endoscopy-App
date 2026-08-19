@@ -16,7 +16,6 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<MediaCapture> MediaCaptures => Set<MediaCapture>();
-    public DbSet<AiFinding> AiFindings => Set<AiFinding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,19 +50,6 @@ public class AppDbContext : DbContext
             // pratik değil, DB üzerinden aranmalı").
             entity.HasIndex(e => e.PatientIdentifier);
             entity.HasIndex(e => e.DoctorName);
-
-            entity.HasMany(e => e.Findings)
-                .WithOne(f => f.Capture!)
-                .HasForeignKey(f => f.CaptureId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<AiFinding>(entity =>
-        {
-            entity.ToTable("AiFindings");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.FindingType).IsRequired();
-            entity.Property(e => e.Description).IsRequired();
         });
     }
 }

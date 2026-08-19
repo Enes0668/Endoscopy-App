@@ -29,11 +29,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<CaptureDbService>();
 
-// Claude Vision entegrasyonu: capture anında kareyi analiz eder.
-// API key kod içinde YOK — appsettings/User Secrets/ortam değişkeninden okunur
-// (bkz. Services/AnthropicVisionService.cs, "Anthropic:ApiKey" ayarı).
-builder.Services.AddHttpClient<AnthropicVisionService>();
-
 // Prototipte tarayıcıdan (farklı porttan da olsa) rahatça test edebilmek için CORS açık.
 builder.Services.AddCors(options =>
 {

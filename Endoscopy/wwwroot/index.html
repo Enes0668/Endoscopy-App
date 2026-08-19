@@ -43,7 +43,7 @@
 </head>
 <body>
   <h2>Endoskopi Web Prototipi</h2>
-  <p class="subtitle">Bilgisayar kamerası → Backend (ASP.NET Core / OpenCvSharp) → SQLite veritabanı</p>
+  <p class="subtitle">Bilgisayar kamerası → Backend (ASP.NET Core / OpenCvSharp) → PostgreSQL veritabanı</p>
 
   <div class="container">
     <!-- Canlı Kamera Paneli -->
@@ -95,7 +95,7 @@
 
     <!-- Veritabanı Kayıtları -->
     <div class="panel right-panel">
-      <h3>Veritabanındaki Kayıtlar (SQLite)</h3>
+      <h3>Veritabanındaki Kayıtlar</h3>
       <button class="secondary" onclick="loadCaptures()">🔄 Listeyi Yenile</button>
       <table>
         <thead>
@@ -107,7 +107,6 @@
             <th>Tetikleyici</th>
             <th>Zaman (UTC)</th>
             <th>Süre / Durum</th>
-            <th>AI Bulgusu (Claude)</th>
           </tr>
         </thead>
         <tbody id="captures-table"></tbody>
@@ -186,11 +185,7 @@
         }
 
         const data = await response.json();
-        if (data.finding) {
-          statusEl.textContent = `Kaydedildi (Id: ${data.id}) — Claude: ${data.finding.findingType} — "${data.finding.description}"`;
-        } else {
-          statusEl.textContent = `Kaydedildi (Id: ${data.id}, dosya: ${data.filePath}). AI analizi yapılmadı (API key ayarlı değil).`;
-        }
+        statusEl.textContent = `Kaydedildi (Id: ${data.id}, dosya: ${data.filePath}).`;
         loadCaptures();
       } catch (e) {
         statusEl.textContent = 'Bağlantı hatası: ' + e.message;
@@ -363,16 +358,11 @@
       tbody.innerHTML = '';
 
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
         return;
       }
 
       data.forEach(item => {
-        const findingCell = item.findingType
-          ? `<strong>${item.findingType}</strong><br><span style="color:#555">${item.findingDescription ?? ''}</span>` +
-            (item.findingConfidence != null ? `<br><span style="color:#999">güven: %${(item.findingConfidence * 100).toFixed(0)}</span>` : '')
-          : '<span style="color:#aaa">—</span>';
-
         const row = `
           <tr>
             <td>${previewCell(item)}</td>
@@ -382,7 +372,6 @@
             <td>${item.triggerSource}</td>
             <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
             <td>${durationOrStatus(item)}</td>
-            <td>${findingCell}</td>
           </tr>
         `;
         tbody.innerHTML += row;
