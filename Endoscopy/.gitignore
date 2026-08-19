@@ -1,0 +1,11 @@
+bin/
+obj/
+storage/
+*.db
+*.db-shm
+*.db-wal
+*.db.bak*
+.vs/
+# Şifre içeriyor (Postgres bağlantı stringi) — repoya girmemeli.
+appsettings.Development.json
+appsettings.Production.json

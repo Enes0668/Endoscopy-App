@@ -1,0 +1,235 @@
+using System.Text;
+using Endoscopy.Models;
+using Endoscopy.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Endoscopy.Controllers;
+
+public record CaptureRequest(
+    string? TriggerSource,
+    string? PatientIdentifier = null,
+    string? PatientName = null,
+    string? DoctorName = null,
+    string? ProcedureType = null,
+    string? RoomName = null)
+{
+    public CaptureContext ToContext() => new(PatientIdentifier, PatientName, DoctorName, ProcedureType, RoomName);
+}
+
+[ApiController]
+[Route("api")]
+public class CapturesController : ControllerBase
+{
+    private readonly CameraService _camera;
+    private readonly CaptureDbService _db;
+    private readonly AnthropicVisionService _vision;
+    private readonly IWebHostEnvironment _env;
+    private readonly ILogger<CapturesController> _logger;
+
+    public CapturesController(CameraService camera, CaptureDbService db, AnthropicVisionService vision, IWebHostEnvironment env, ILogger<CapturesController> logger)
+    {
+        _camera = camera;
+        _db = db;
+        _vision = vision;
+        _env = env;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Canlı kamera akışı (MJPEG). &lt;img src="/api/video-feed"&gt; ile
+    /// doğrudan tarayıcıda oynatılabilir; endoskopi kamerasının USB
+    /// üzerinden canlı yayınına karşılık gelir.
+    /// </summary>
+    [HttpGet("video-feed")]
+    public async Task VideoFeed()
+    {
+        var token = HttpContext.RequestAborted;
+        Response.ContentType = "multipart/x-mixed-replace; boundary=frame";
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var jpeg = _camera.GetLatestFrameJpeg();
+                if (jpeg != null)
+                {
+                    var header = Encoding.ASCII.GetBytes(
+                        $"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {jpeg.Length}\r\n\r\n");
+
+                    await Response.Body.WriteAsync(header, token);
+                    await Response.Body.WriteAsync(jpeg, token);
+                    await Response.Body.WriteAsync(Encoding.ASCII.GetBytes("\r\n"), token);
+                    await Response.Body.FlushAsync(token);
+                }
+
+                await Task.Delay(33, token); // ~30 FPS
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Tarayıcı sekmesi kapandı / sayfa yenilendi -> normal davranış
+        }
+    }
+
+    /// <summary>
+    /// Anlık kareyi yakalar (Snapshot). Gerçek cihazda bu tetikleyici seri
+    /// porttan ("PEDAL_CLICK") gelir; burada web arayüzündeki butondan gelir.
+    /// Kare diske .jpg olarak yazılır ve SQLite'a satır olarak eklenir.
+    /// </summary>
+    [HttpPost("capture")]
+    public async Task<IActionResult> Capture([FromBody] CaptureRequest? request, CancellationToken cancellationToken)
+    {
+        if (!_camera.IsCameraAvailable)
+        {
+            return StatusCode(500, new { message = "Kamera bulunamadı ya da başka bir uygulama tarafından kullanılıyor." });
+        }
+
+        using var frame = _camera.GetLatestFrameClone();
+        if (frame == null || frame.Empty())
+        {
+            return StatusCode(500, new { message = "Kameradan henüz bir görüntü karesi alınamadı, birkaç saniye sonra tekrar deneyin." });
+        }
+
+        var capturedAt = DateTimeOffset.UtcNow;
+        var fileName = $"capture_{capturedAt.ToUnixTimeMilliseconds()}.jpg";
+
+        var storageDir = Path.Combine(_env.ContentRootPath, "storage");
+        Directory.CreateDirectory(storageDir);
+        var absoluteFilePath = Path.Combine(storageDir, fileName);
+        frame.SaveImage(absoluteFilePath);
+
+        var relativePath = $"/storage/{fileName}";
+        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext());
+
+        _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}", id, fileName);
+
+        // Kare kaydedildikten hemen sonra Claude ile senkron analiz ediliyor.
+        // Analiz başarısız olsa/atlansa bile capture kaydı zaten diskte ve DB'de duruyor.
+        object? finding = null;
+        if (_vision.IsConfigured)
+        {
+            var jpegBytes = await System.IO.File.ReadAllBytesAsync(absoluteFilePath, cancellationToken);
+            var result = await _vision.AnalyzeFrameAsync(jpegBytes, cancellationToken);
+            if (result != null)
+            {
+                _db.InsertFinding(id, result.FindingType, result.Description, result.Confidence);
+                finding = new { result.FindingType, result.Description, result.Confidence };
+                _logger.LogInformation("AI analizi tamamlandı: CaptureId={Id}, FindingType={FindingType}", id, result.FindingType);
+            }
+        }
+
+        return Ok(new { id, filePath = relativePath, capturedAt, finding });
+    }
+
+    /// <summary>
+    /// Video kaydını başlatır. Fotoğraftan farklı olarak tek istekte bitmez:
+    /// bu, DB'de Status='recording' bir satır açar ve CameraService'e her kareyi
+    /// tek bir dosyaya diske yazmasını söyler; asıl kayıt "stop" isteği gelene
+    /// kadar arka planda, capture loop'un içinden, kare kare devam eder.
+    /// </summary>
+    [HttpPost("capture/video/start")]
+    public IActionResult StartVideoCapture([FromBody] CaptureRequest? request)
+    {
+        if (!_camera.IsCameraAvailable)
+        {
+            return StatusCode(500, new { message = "Kamera bulunamadı ya da başka bir uygulama tarafından kullanılıyor." });
+        }
+
+        if (_camera.IsRecording)
+        {
+            return Conflict(new { message = "Zaten devam eden bir video kaydı var. Önce onu durdurun." });
+        }
+
+        var startedAt = DateTimeOffset.UtcNow;
+        var baseFileName = $"video_{startedAt.ToUnixTimeMilliseconds()}";
+
+        var storageDir = Path.Combine(_env.ContentRootPath, "storage");
+        Directory.CreateDirectory(storageDir);
+
+        // Önce kamerayı/codec'i başlatmayı deniyoruz; ancak başarılı olursa DB
+        // satırını açıyoruz. Böylece kamera hatasında yarım kalan bir DB satırı
+        // oluşmuyor (rollback'e gerek kalmıyor).
+        var actualFilePath = _camera.StartRecording(storageDir, baseFileName);
+        if (actualFilePath == null)
+        {
+            var reason = _camera.LastStartFailureReason ?? "Video kaydı başlatılamadı (codec ya da dosya hatası).";
+            return StatusCode(500, new { message = reason });
+        }
+
+        var relativePath = $"/storage/{Path.GetFileName(actualFilePath)}";
+        var id = _db.InsertCapture(CaptureType.Video, relativePath, startedAt, request?.TriggerSource ?? "WEB_BUTTON", status: CaptureStatus.Recording, context: request?.ToContext());
+
+        _logger.LogInformation("Video kaydı başladı: Id={Id}, Dosya={FileName}", id, relativePath);
+
+        return Ok(new { id, filePath = relativePath, startedAt });
+    }
+
+    /// <summary>
+    /// Devam eden video kaydını durdurur, dosyayı finalize eder, dosyanın gerçekten
+    /// oynatılabilir olduğunu doğrular ve DB satırını buna göre günceller:
+    /// doğrulama başarılıysa Status='completed', başarısızsa Status='corrupted'.
+    /// </summary>
+    [HttpPost("capture/video/stop")]
+    public IActionResult StopVideoCapture()
+    {
+        if (!_camera.IsRecording)
+        {
+            return BadRequest(new { message = "Devam eden bir video kaydı yok." });
+        }
+
+        var recording = _db.GetActiveRecording();
+        var stopResult = _camera.StopRecording();
+
+        if (stopResult == null)
+        {
+            // Bu istek işlenirken kayıt başka bir sebeple (kamera koptu, disk doldu)
+            // zaten otomatik durmuş olabilir. DB'yi burada tekrar güncellemiyoruz ki
+            // oradaki (muhtemelen 'interrupted') durumu ezmeyelim.
+            return Ok(new { message = "Kayıt zaten durmuştu (muhtemelen otomatik olarak durduruldu)." });
+        }
+
+        if (recording == null)
+        {
+            return Ok(new { message = "Kayıt durduruldu (eşleşen DB satırı bulunamadı)." });
+        }
+
+        var endedAt = DateTimeOffset.UtcNow;
+        var durationMs = (long)(endedAt - recording.CapturedAt).TotalMilliseconds;
+        var finalStatus = stopResult.IsPlaybackVerified ? CaptureStatus.Completed : CaptureStatus.Corrupted;
+
+        _db.CompleteVideoCapture(recording.Id, endedAt, durationMs, finalStatus, stopResult.Width, stopResult.Height, stopResult.FrameCount);
+
+        _logger.LogInformation(
+            "Video kaydı durdu: Id={Id}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, Doğrulandı={Verified}",
+            recording.Id, durationMs, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.IsPlaybackVerified);
+
+        return Ok(new
+        {
+            id = recording.Id,
+            endedAt,
+            durationMs,
+            verified = stopResult.IsPlaybackVerified,
+            width = stopResult.Width,
+            height = stopResult.Height,
+            frameCount = stopResult.FrameCount
+        });
+    }
+
+    /// <summary>
+    /// Sayfa yenilendiğinde ya da tarayıcı yeniden açıldığında "hâlâ devam eden
+    /// bir kayıt var mı?" diye sormak için. Kayıt server-side olduğu için
+    /// tarayıcı kapansa bile kayıt durmaz; bu endpoint UI'ın durumu senkronlaması içindir.
+    /// </summary>
+    [HttpGet("capture/video/status")]
+    public IActionResult GetVideoStatus()
+    {
+        return Ok(new { isRecording = _camera.IsRecording, capture = _db.GetActiveRecording() });
+    }
+
+    /// <summary>Veritabanındaki tüm kayıtları (fotoğraf + video) en yeniden eskiye listeler.</summary>
+    [HttpGet("captures")]
+    public IActionResult GetCaptures()
+    {
+        return Ok(_db.GetCaptures());
+    }
+}

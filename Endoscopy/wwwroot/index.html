@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Endoskopi Web Prototipi — Kamera & Veritabanı Testi</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 24px; background: #f4f6f8; color: #1a1a1a; }
+    h2 { margin-bottom: 4px; }
+    .subtitle { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+    .container { display: flex; gap: 20px; flex-wrap: wrap; }
+    .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+    .video-box { width: 480px; height: 360px; background: #111; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .video-box img { width: 100%; height: 100%; object-fit: cover; }
+    button { padding: 10px 18px; font-size: 15px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 12px; margin-right: 8px; }
+    button:hover { background: #0052a3; }
+    button.secondary { background: #28a745; }
+    button.secondary:hover { background: #1e7e34; }
+    button.recording { background: #cc0000; }
+    button.recording:hover { background: #a30000; }
+    select { padding: 9px 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; margin-top: 12px; }
+    .context-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .context-form input { padding: 8px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+    .context-form label { font-size: 11px; color: #666; display: block; margin-bottom: 2px; }
+    .context-note { font-size: 11px; color: #999; margin-top: 4px; }
+    .rec-indicator { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 13px; color: #cc0000; font-weight: 600; }
+    .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #cc0000; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.2; } }
+    .video-thumb { width: 120px; height: 60px; object-fit: cover; border-radius: 4px; background: #000; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-photo { background: #e7f1ff; color: #0066cc; }
+    .badge-video { background: #ffe9e9; color: #cc0000; }
+    .badge-recording { background: #fff3cd; color: #997404; }
+    .badge-interrupted { background: #ffe5cc; color: #a35400; }
+    .badge-corrupted { background: #2b2b2b; color: #ff6b6b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #f0f2f5; }
+    .thumb { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; }
+    .status { margin-top: 10px; font-size: 13px; color: #444; min-height: 18px; }
+    .right-panel { flex: 1; min-width: 400px; }
+  </style>
+</head>
+<body>
+  <h2>Endoskopi Web Prototipi</h2>
+  <p class="subtitle">Bilgisayar kamerası → Backend (ASP.NET Core / OpenCvSharp) → SQLite veritabanı</p>
+
+  <div class="container">
+    <!-- Canlı Kamera Paneli -->
+    <div class="panel">
+      <h3>Canlı Kamera Yayını</h3>
+      <div class="video-box">
+        <img src="/api/video-feed" alt="Kamera akışı" />
+      </div>
+
+      <div>
+        <select id="mode-select" onchange="onModeChange()">
+          <option value="photo">📷 Fotoğraf</option>
+          <option value="video">🎥 Video</option>
+        </select>
+        <button id="action-btn" onclick="onActionClick()">📸 Kare Yakala & DB'ye Kaydet</button>
+        <span class="rec-indicator" id="rec-indicator" style="display:none;">
+          <span class="rec-dot"></span> Kayıtta — <span id="rec-timer">00:00</span>
+        </span>
+      </div>
+
+      <!-- Bu kaydın kime/hangi işleme ait olduğu — hepsi opsiyonel, boş -->
+      <!-- bırakılabilir. DB'ye InsertCapture ile birlikte gidiyor. -->
+      <div class="context-form">
+        <div>
+          <label for="ctx-patient-id">Hasta No (MRN)</label>
+          <input id="ctx-patient-id" type="text" placeholder="örn. 10293847" />
+        </div>
+        <div>
+          <label for="ctx-patient-name">Hasta Adı</label>
+          <input id="ctx-patient-name" type="text" placeholder="örn. Ahmet Yılmaz" />
+        </div>
+        <div>
+          <label for="ctx-doctor-name">Doktor</label>
+          <input id="ctx-doctor-name" type="text" placeholder="örn. Dr. Ayşe Kaya" />
+        </div>
+        <div>
+          <label for="ctx-procedure-type">Prosedür Türü</label>
+          <input id="ctx-procedure-type" type="text" placeholder="örn. Kolonoskopi" />
+        </div>
+        <div>
+          <label for="ctx-room-name">Oda / İstasyon</label>
+          <input id="ctx-room-name" type="text" placeholder="örn. Endoskopi Oda 3" />
+        </div>
+      </div>
+      <div class="context-note">Bu bilgiler isteğe bağlıdır; boş bırakılırsa kayıt yine de yapılır, ama listede kime ait olduğu görünmez.</div>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- Veritabanı Kayıtları -->
+    <div class="panel right-panel">
+      <h3>Veritabanındaki Kayıtlar (SQLite)</h3>
+      <button class="secondary" onclick="loadCaptures()">🔄 Listeyi Yenile</button>
+      <table>
+        <thead>
+          <tr>
+            <th>Önizleme</th>
+            <th>ID</th>
+            <th>Tür</th>
+            <th>Hasta / Doktor / Prosedür</th>
+            <th>Tetikleyici</th>
+            <th>Zaman (UTC)</th>
+            <th>Süre / Durum</th>
+            <th>AI Bulgusu (Claude)</th>
+          </tr>
+        </thead>
+        <tbody id="captures-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const modeSelect = document.getElementById('mode-select');
+    const actionBtn = document.getElementById('action-btn');
+    const recIndicator = document.getElementById('rec-indicator');
+    const recTimer = document.getElementById('rec-timer');
+
+    let isRecording = false;
+    let recordingStartedAt = null;
+    let timerInterval = null;
+
+    // --- "Kime/hangi işleme ait" formu ---
+    // Hepsi opsiyonel; boş bırakılan alan isteğe hiç eklenmiyor (backend'de
+    // zaten hepsi nullable — boş string yerine gerçek null gitmesi DB'de
+    // daha temiz: "" yerine NULL, aramalarda/filtrelerde karışıklık yaratmaz).
+    function readContextPayload() {
+      const val = id => document.getElementById(id).value.trim() || null;
+      return {
+        patientIdentifier: val('ctx-patient-id'),
+        patientName: val('ctx-patient-name'),
+        doctorName: val('ctx-doctor-name'),
+        procedureType: val('ctx-procedure-type'),
+        roomName: val('ctx-room-name')
+      };
+    }
+
+    // --- Dropdown moduna göre buton metni/rengi ---
+    function onModeChange() {
+      if (isRecording) {
+        // Kayıt devam ederken modu değiştirmeye izin verme; kullanıcı önce durdurmalı.
+        modeSelect.value = 'video';
+        statusEl.textContent = 'Devam eden video kaydını durdurmadan mod değiştiremezsiniz.';
+        return;
+      }
+      updateButtonForMode();
+    }
+
+    function updateButtonForMode() {
+      if (modeSelect.value === 'photo') {
+        actionBtn.textContent = '📸 Kare Yakala & DB\'ye Kaydet';
+        actionBtn.classList.remove('recording');
+      } else {
+        actionBtn.textContent = '⏺ Video Kaydını Başlat';
+        actionBtn.classList.remove('recording');
+      }
+    }
+
+    function onActionClick() {
+      if (modeSelect.value === 'photo') {
+        takeSnapshot();
+      } else {
+        isRecording ? stopRecording() : startRecording();
+      }
+    }
+
+    async function takeSnapshot() {
+      statusEl.textContent = 'Kare yakalanıyor...';
+      try {
+        const response = await fetch('/api/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        if (data.finding) {
+          statusEl.textContent = `Kaydedildi (Id: ${data.id}) — Claude: ${data.finding.findingType} — "${data.finding.description}"`;
+        } else {
+          statusEl.textContent = `Kaydedildi (Id: ${data.id}, dosya: ${data.filePath}). AI analizi yapılmadı (API key ayarlı değil).`;
+        }
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    async function startRecording() {
+      statusEl.textContent = 'Video kaydı başlatılıyor...';
+      try {
+        const response = await fetch('/api/capture/video/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        enterRecordingState(new Date(data.startedAt));
+        statusEl.textContent = `Kayıt başladı (Id: ${data.id}, dosya: ${data.filePath}).`;
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    async function stopRecording() {
+      statusEl.textContent = 'Video kaydı durduruluyor...';
+      try {
+        const response = await fetch('/api/capture/video/stop', { method: 'POST' });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        exitRecordingState();
+        const seconds = data.durationMs ? Math.round(data.durationMs / 1000) : '?';
+        if (data.verified === false) {
+          statusEl.textContent = `⚠ Kayıt durduruldu (Id: ${data.id}, süre: ${seconds}sn) ama dosya doğrulanamadı — bozuk olabilir.`;
+        } else {
+          statusEl.textContent = `Kayıt durduruldu (Id: ${data.id}, süre: ${seconds}sn).`;
+        }
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    function enterRecordingState(startedAt) {
+      isRecording = true;
+      recordingStartedAt = startedAt;
+      recIndicator.style.display = 'inline-flex';
+      actionBtn.textContent = '⏹ Video Kaydını Durdur';
+      actionBtn.classList.add('recording');
+      modeSelect.value = 'video';
+      modeSelect.disabled = true;
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 500);
+      updateTimer();
+    }
+
+    function exitRecordingState() {
+      isRecording = false;
+      recordingStartedAt = null;
+      recIndicator.style.display = 'none';
+      modeSelect.disabled = false;
+      clearInterval(timerInterval);
+      updateButtonForMode();
+    }
+
+    function updateTimer() {
+      if (!recordingStartedAt) return;
+      const elapsedSec = Math.floor((Date.now() - recordingStartedAt.getTime()) / 1000);
+      const mm = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+      const ss = String(elapsedSec % 60).padStart(2, '0');
+      recTimer.textContent = `${mm}:${ss}`;
+    }
+
+    // Sayfa (yeniden) açıldığında: sunucuda hâlâ devam eden bir kayıt var mı diye
+    // sor. Kayıt server-side olduğu için tarayıcı kapansa/yenilense bile devam
+    // ediyor olabilir; UI'ı gerçek duruma göre senkronlamak için bu şart.
+    async function syncRecordingState() {
+      try {
+        const res = await fetch('/api/capture/video/status');
+        const data = await res.json();
+        if (data.isRecording && data.capture) {
+          enterRecordingState(new Date(data.capture.capturedAt));
+          statusEl.textContent = `Sunucuda devam eden bir kayıt bulundu (Id: ${data.capture.id}), UI senkronlandı.`;
+        }
+      } catch (e) {
+        // Sessiz geç: durum senkronu opsiyonel bir iyileştirme.
+      }
+    }
+
+    function typeBadge(item) {
+      if (item.captureType === 'video') {
+        switch (item.status) {
+          case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
+          case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
+          case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
+          default: return '<span class="badge badge-video">🎥 Video</span>';
+        }
+      }
+      return '<span class="badge badge-photo">📷 Fotoğraf</span>';
+    }
+
+    function durationOrStatus(item) {
+      if (item.captureType !== 'video') return '—';
+      if (item.status === 'recording') return '<span style="color:#cc0000">devam ediyor…</span>';
+      if (item.durationMs != null) {
+        const seconds = `${Math.round(item.durationMs / 1000)} sn`;
+        const main = item.status === 'interrupted' ? `~${seconds} (tahmini)` : seconds;
+        return main + techInfoLine(item);
+      }
+      return '—';
+    }
+
+    // Çözünürlük + gerçek kare sayısından hesaplanan ortalama fps — deklare
+    // edilen sabit 20fps'ten sapabiliyor, bu satır o farkı görünür kılıyor.
+    function techInfoLine(item) {
+      const bits = [];
+      if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
+      if (item.frameCount != null && item.durationMs) {
+        const fps = (item.frameCount / (item.durationMs / 1000)).toFixed(1);
+        bits.push(`${item.frameCount} kare (~${fps}fps)`);
+      }
+      return bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
+    }
+
+    function contextCell(item) {
+      const parts = [];
+      if (item.patientName || item.patientIdentifier) {
+        const idSuffix = item.patientIdentifier ? ` (${item.patientIdentifier})` : '';
+        parts.push(`<strong>${item.patientName ?? 'İsimsiz hasta'}</strong>${idSuffix}`);
+      }
+      if (item.doctorName) parts.push(item.doctorName);
+      if (item.procedureType) parts.push(item.procedureType);
+      if (item.roomName) parts.push(`<span style="color:#999">${item.roomName}</span>`);
+
+      return parts.length > 0
+        ? parts.join('<br>')
+        : '<span style="color:#aaa">—</span>';
+    }
+
+    function previewCell(item) {
+      if (item.captureType === 'video') {
+        if (item.status === 'recording') {
+          return '<span style="color:#cc0000">⏳ kayıt sürüyor…</span>';
+        }
+        // interrupted/corrupted durumlarda da dosyayı açmayı deniyoruz —
+        // bazen kısmen oynatılabilir kalıyor; rozet zaten dikkatli olunması
+        // gerektiğini gösteriyor.
+        return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
+      }
+      return `<img src="${item.filePath}" class="thumb" />`;
+    }
+
+    async function loadCaptures() {
+      const res = await fetch('/api/captures');
+      const data = await res.json();
+      const tbody = document.getElementById('captures-table');
+      tbody.innerHTML = '';
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
+        return;
+      }
+
+      data.forEach(item => {
+        const findingCell = item.findingType
+          ? `<strong>${item.findingType}</strong><br><span style="color:#555">${item.findingDescription ?? ''}</span>` +
+            (item.findingConfidence != null ? `<br><span style="color:#999">güven: %${(item.findingConfidence * 100).toFixed(0)}</span>` : '')
+          : '<span style="color:#aaa">—</span>';
+
+        const row = `
+          <tr>
+            <td>${previewCell(item)}</td>
+            <td>${item.id}</td>
+            <td>${typeBadge(item)}</td>
+            <td>${contextCell(item)}</td>
+            <td>${item.triggerSource}</td>
+            <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
+            <td>${durationOrStatus(item)}</td>
+            <td>${findingCell}</td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
+      });
+    }
+
+    updateButtonForMode();
+    syncRecordingState();
+    loadCaptures();
+  </script>
+</body>
+</html>

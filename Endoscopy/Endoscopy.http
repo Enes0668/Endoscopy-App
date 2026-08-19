@@ -1,0 +1,6 @@
+@Endoscopy_HostAddress = http://localhost:5199
+
+GET {{Endoscopy_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
