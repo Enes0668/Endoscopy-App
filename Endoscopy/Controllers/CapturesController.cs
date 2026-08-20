@@ -23,13 +23,15 @@ public class CapturesController : ControllerBase
 {
     private readonly CameraService _camera;
     private readonly CaptureDbService _db;
+    private readonly DeviceIdentityService _device;
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<CapturesController> _logger;
 
-    public CapturesController(CameraService camera, CaptureDbService db, IWebHostEnvironment env, ILogger<CapturesController> logger)
+    public CapturesController(CameraService camera, CaptureDbService db, DeviceIdentityService device, IWebHostEnvironment env, ILogger<CapturesController> logger)
     {
         _camera = camera;
         _db = db;
+        _device = device;
         _env = env;
         _logger = logger;
     }
@@ -99,7 +101,13 @@ public class CapturesController : ControllerBase
 
         var relativePath = $"/storage/{fileName}";
         var fileSizeBytes = new FileInfo(absoluteFilePath).Length;
-        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes, width: frame.Width, height: frame.Height);
+        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes, width: frame.Width, height: frame.Height,
+            machineName: _device.MachineName, localIpAddress: _device.LocalIpAddress, localMacAddress: _device.LocalMacAddress);
+
+        // Dosya artık tam yazılmış durumda (fotoğrafta stream açık kalmıyor,
+        // videodan farklı olarak) — bu yüzden metadata'yı hemen, aynı istekte
+        // yazabiliyoruz. Başarısız olursa capture akışını bozmaz, sadece loglanır.
+        FileIdentityTagger.TryWriteCaptureIdentity(absoluteFilePath, _device.MachineName, _device.LocalIpAddress, _device.LocalMacAddress, _logger);
 
         _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}, {Width}x{Height}", id, fileName, frame.Width, frame.Height);
 
@@ -142,7 +150,12 @@ public class CapturesController : ControllerBase
         }
 
         var relativePath = $"/storage/{Path.GetFileName(actualFilePath)}";
-        var id = _db.InsertCapture(CaptureType.Video, relativePath, startedAt, request?.TriggerSource ?? "WEB_BUTTON", status: CaptureStatus.Recording, context: request?.ToContext());
+        // Dosyanın kendi metadata'sına burada YAZMIYORUZ: VideoWriter dosyayı hâlâ
+        // açık tutuyor, kayıt sürerken TagLibSharp ile açmaya çalışmak dosya
+        // kilidiyle çakışır. Kimlik bilgisi DB'ye şimdi yazılıyor, dosyaya ise
+        // kayıt kapandığında (StopVideoCapture / otomatik durma) yazılacak.
+        var id = _db.InsertCapture(CaptureType.Video, relativePath, startedAt, request?.TriggerSource ?? "WEB_BUTTON", status: CaptureStatus.Recording, context: request?.ToContext(),
+            machineName: _device.MachineName, localIpAddress: _device.LocalIpAddress, localMacAddress: _device.LocalMacAddress);
 
         _logger.LogInformation("Video kaydı başladı: Id={Id}, Dosya={FileName}", id, relativePath);
 
@@ -183,6 +196,13 @@ public class CapturesController : ControllerBase
         var finalStatus = stopResult.IsPlaybackVerified ? CaptureStatus.Completed : CaptureStatus.Corrupted;
 
         _db.CompleteVideoCapture(recording.Id, endedAt, durationMs, finalStatus, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes);
+
+        // Dosya artık finalize edildi (VideoWriter kapandı) — kimlik bilgisini
+        // burada, kayıt anında InsertCapture ile DB'ye yazılmış olan aynı
+        // değerlerden (recording entity üzerinden) dosyanın içine de yazıyoruz.
+        // Doğrulama başarısız olsa (Corrupted) bile deniyoruz — dosya bozuksa
+        // zaten TagLibSharp da açamayıp sessizce başarısız olacaktır.
+        FileIdentityTagger.TryWriteCaptureIdentity(stopResult.FilePath, recording.MachineName ?? _device.MachineName, recording.LocalIpAddress, recording.LocalMacAddress, _logger);
 
         _logger.LogInformation(
             "Video kaydı durdu: Id={Id}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, Doğrulandı={Verified}",

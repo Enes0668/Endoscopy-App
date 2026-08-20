@@ -8,4 +8,5 @@ storage/
 *.db.bak*
 appsettings.Development.json
 appsettings.Production.json
+.claude/
 

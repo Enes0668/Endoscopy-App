@@ -100,4 +100,21 @@ public class MediaCapture
     /// gerçek bir kullanıcı ID'sine dönüştürülebilir.
     /// </summary>
     public string? CreatedByName { get; set; }
+
+    // --- Capture istasyonunun kimliği (provenance) ---
+    // Dosya DB'den bağımsız olarak da (paylaşımlı diske kopyalanırsa,
+    // yedeklenirse) hangi istasyondan geldiğini kanıtlayabilsin diye bu üç
+    // alan hem burada (DB'de) hem de dosyanın kendi metadata'sında (bkz.
+    // FileIdentityTagger) tutuluyor. DeviceIdentityService ile sunucu
+    // tarafında tespit edilir — istemciden (formdan) GELMEZ, bu sayede
+    // güvenilirliği korunur (CreatedByName gibi serbest metin değil).
+
+    /// <summary>Kaydı üreten bilgisayarın adı (Environment.MachineName).</summary>
+    public string? MachineName { get; set; }
+
+    /// <summary>Kaydı üreten bilgisayarın yerel IPv4 adresi.</summary>
+    public string? LocalIpAddress { get; set; }
+
+    /// <summary>Kaydı üreten bilgisayarın aktif ağ adaptörünün MAC adresi.</summary>
+    public string? LocalMacAddress { get; set; }
 }

@@ -27,7 +27,10 @@ public record CaptureListItem(
     int? Height,
     long? FrameCount,
     long? FileSizeBytes,
-    string? CreatedByName);
+    string? CreatedByName,
+    string? MachineName,
+    string? LocalIpAddress,
+    string? LocalMacAddress);
 
 /// <summary>Bir capture oluştururken "kime/hangi işleme ait" bilgisini taşıyan opsiyonel paket.</summary>
 public record CaptureContext(
@@ -61,8 +64,11 @@ public class CaptureDbService
     /// "fileSizeBytes"/"width"/"height" fotoğrafta hemen biliniyor (kare zaten
     /// bellekte, dosya o an tam yazıldı); videoda width/height start anında,
     /// fileSizeBytes ise kayıt bitince CompleteVideoCapture ile doldurulur.
+    /// "machineName"/"localIpAddress"/"localMacAddress" DeviceIdentityService'ten
+    /// gelir (bkz. o servis) — context'in parçası DEĞİL, çünkü context istemciden
+    /// (formdan) geliyor, bu üçü ise sunucunun kendi tespiti; karıştırmıyoruz.
     /// </summary>
-    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null, long? fileSizeBytes = null, int? width = null, int? height = null)
+    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null, long? fileSizeBytes = null, int? width = null, int? height = null, string? machineName = null, string? localIpAddress = null, string? localMacAddress = null)
     {
         var entity = new MediaCapture
         {
@@ -79,7 +85,10 @@ public class CaptureDbService
             FileSizeBytes = fileSizeBytes,
             CreatedByName = context?.CreatedByName,
             Width = width,
-            Height = height
+            Height = height,
+            MachineName = machineName,
+            LocalIpAddress = localIpAddress,
+            LocalMacAddress = localMacAddress
         };
 
         _db.MediaCaptures.Add(entity);
@@ -175,7 +184,10 @@ public class CaptureDbService
                 c.Height,
                 c.FrameCount,
                 c.FileSizeBytes,
-                c.CreatedByName))
+                c.CreatedByName,
+                c.MachineName,
+                c.LocalIpAddress,
+                c.LocalMacAddress))
             .ToList();
     }
 

@@ -22,6 +22,10 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddSingleton<CameraService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CameraService>());
 
+// Bu istasyonun (bilgisayarın) kimliğini (MachineName/IP/MAC) bir kere
+// tespit edip önbelleğe alan servis — bkz. Services/DeviceIdentityService.cs.
+builder.Services.AddSingleton<DeviceIdentityService>();
+
 // PostgreSQL üzerinde EF Core (bkz. Data/AppDbContext.cs, Models/). DbContext
 // scoped yaşam süresine sahip olmalı (thread-safe değil) — CaptureDbService de
 // bu yüzden scoped; her HTTP isteği kendi DbContext örneğini alır.
@@ -80,6 +84,12 @@ app.Services.GetRequiredService<CameraService>().RecordingAutoStopped += info =>
     // akışından ayırt edilsin diye. Dosyanın oynatılabilir olup olmadığı
     // ayrıca log'da duruyor (bkz. CameraService), Status'u karmaşıklaştırmıyoruz.
     db.CompleteVideoCapture(active.Id, endedAt, durationMs, CaptureStatus.Interrupted, info.Width, info.Height, info.FrameCount, info.FileSizeBytes);
+
+    // Normal "stop" akışındaki (CapturesController.StopVideoCapture) aynı mantık:
+    // dosya artık finalize edildi (VideoWriter kapandı), kimlik bilgisini şimdi
+    // dosyanın içine de yazabiliriz.
+    var device = scope.ServiceProvider.GetRequiredService<DeviceIdentityService>();
+    FileIdentityTagger.TryWriteCaptureIdentity(info.FilePath, active.MachineName ?? device.MachineName, active.LocalIpAddress, active.LocalMacAddress, logger);
 
     logger.LogWarning(
         "Video kaydı otomatik durduruldu ve DB'de 'Interrupted' işaretlendi: Id={Id}, Sebep={Reason}, Doğrulandı={Verified}",
