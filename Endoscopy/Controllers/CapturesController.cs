@@ -99,9 +99,9 @@ public class CapturesController : ControllerBase
 
         var relativePath = $"/storage/{fileName}";
         var fileSizeBytes = new FileInfo(absoluteFilePath).Length;
-        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes);
+        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes, width: frame.Width, height: frame.Height);
 
-        _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}", id, fileName);
+        _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}, {Width}x{Height}", id, fileName, frame.Width, frame.Height);
 
         return Ok(new { id, filePath = relativePath, capturedAt });
     }

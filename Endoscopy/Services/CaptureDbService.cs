@@ -58,10 +58,11 @@ public class CaptureDbService
     /// Yeni bir capture satırı ekler. Fotoğrafta status daima Completed, videoda
     /// Recording ile başlar. "context" opsiyonel — arayüzden hasta/doktor/prosedür
     /// bilgisi girilmediyse null geçilebilir, alanlar boş kalır (zorunlu değil).
-    /// "fileSizeBytes" fotoğrafta hemen biliniyor (dosya o an tam yazıldı); videoda
-    /// null geçilir, kayıt bitince CompleteVideoCapture ile doldurulur.
+    /// "fileSizeBytes"/"width"/"height" fotoğrafta hemen biliniyor (kare zaten
+    /// bellekte, dosya o an tam yazıldı); videoda width/height start anında,
+    /// fileSizeBytes ise kayıt bitince CompleteVideoCapture ile doldurulur.
     /// </summary>
-    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null, long? fileSizeBytes = null)
+    public long InsertCapture(CaptureType captureType, string filePath, DateTimeOffset capturedAt, string triggerSource, CaptureStatus status = CaptureStatus.Completed, CaptureContext? context = null, long? fileSizeBytes = null, int? width = null, int? height = null)
     {
         var entity = new MediaCapture
         {
@@ -76,7 +77,9 @@ public class CaptureDbService
             ProcedureType = context?.ProcedureType,
             RoomName = context?.RoomName,
             FileSizeBytes = fileSizeBytes,
-            CreatedByName = context?.CreatedByName
+            CreatedByName = context?.CreatedByName,
+            Width = width,
+            Height = height
         };
 
         _db.MediaCaptures.Add(entity);

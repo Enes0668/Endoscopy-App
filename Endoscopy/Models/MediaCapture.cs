@@ -52,16 +52,19 @@ public class MediaCapture
     /// <summary>Kaydın yapıldığı oda/istasyon — birden fazla kayıt istasyonu olduğunda hangi odadan geldiğini ayırt eder.</summary>
     public string? RoomName { get; set; }
 
-    // --- Video'ya özgü teknik bilgi ---
-    // Sadece video için doldurulur (fotoğrafta null kalır). Kayıt kamerasının
-    // gerçek çözünürlüğü/kare üretimi zamanla değişebilir (kamera değişir,
-    // ayar değişir) — bunu her kayıtta ayrı ayrı tutmak, geriye dönük "bu kayıt
-    // hangi kalitede/hızda çekilmiş" sorusuna dosyayı açmadan cevap verir.
+    // --- Teknik görüntü bilgisi ---
+    // Hem foto hem video için doldurulur — ikisi de aynı türde bilgiyi
+    // (bir karenin genişlik/yükseklik'i) taşıyor, o yüzden ayrı bir
+    // "PhotoWidth/VideoWidth" ayrımı yapmıyoruz, FileSizeBytes'ta olduğu gibi
+    // tek alan paylaşılıyor. Kayıt kamerasının gerçek çözünürlüğü zamanla
+    // değişebilir (kamera değişir, ayar değişir) — bunu her kayıtta ayrı ayrı
+    // tutmak, geriye dönük "bu kayıt hangi kalitede çekilmiş" sorusuna
+    // dosyayı açmadan cevap verir.
 
-    /// <summary>Kayıt karesinin genişliği (piksel). Sadece video.</summary>
+    /// <summary>Karenin genişliği (piksel).</summary>
     public int? Width { get; set; }
 
-    /// <summary>Kayıt karesinin yüksekliği (piksel). Sadece video.</summary>
+    /// <summary>Karenin yüksekliği (piksel).</summary>
     public int? Height { get; set; }
 
     /// <summary>

@@ -316,11 +316,14 @@
         return '<span class="badge badge-photo">📷 Fotoğraf</span>';
       })();
 
-      const sizeLine = item.fileSizeBytes != null
-        ? `<br><span style="color:#999;font-size:11px">${formatFileSize(item.fileSizeBytes)}</span>`
-        : '';
+      // Çözünürlük ve dosya boyutu artık hem foto hem video için doluyor —
+      // ikisi de aynı MediaCapture.Width/Height/FileSizeBytes alanlarını paylaşıyor.
+      const bits = [];
+      if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
+      if (item.fileSizeBytes != null) bits.push(formatFileSize(item.fileSizeBytes));
+      const infoLine = bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
 
-      return badge + sizeLine;
+      return badge + infoLine;
     }
 
     function durationOrStatus(item) {
@@ -334,11 +337,11 @@
       return '—';
     }
 
-    // Çözünürlük + gerçek kare sayısından hesaplanan ortalama fps — deklare
-    // edilen sabit 20fps'ten sapabiliyor, bu satır o farkı görünür kılıyor.
+    // Gerçek kare sayısından hesaplanan ortalama fps — deklare edilen sabit
+    // 20fps'ten sapabiliyor, bu satır o farkı görünür kılıyor. Çözünürlük
+    // artık typeBadge'de gösteriliyor (foto+video ortak), burada tekrar etmiyoruz.
     function techInfoLine(item) {
       const bits = [];
-      if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
       if (item.frameCount != null && item.durationMs) {
         const fps = (item.frameCount / (item.durationMs / 1000)).toFixed(1);
         bits.push(`${item.frameCount} kare (~${fps}fps)`);
