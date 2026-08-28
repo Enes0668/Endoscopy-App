@@ -35,8 +35,11 @@ public class CameraService : IHostedService, IDisposable
     private const long MinFreeBytesForRecording = 500L * 1024 * 1024;
 
     private readonly ILogger<CameraService> _logger;
+    // fiziksel kamera ile bilgisayar arasındaki bağlantıyı (hattı) temsil eden nesnedir
     private VideoCapture? _capture;
+    // en son görüntüyü bellekte (RAM) canlı tutan hafıza alanıdır.
     private readonly Mat _latestFrame = new();
+    // bir yandan okuma bir yandan yazma yaparken race condition olmaması için yapılıyor
     private readonly object _lock = new();
     private Thread? _captureThread;
     private volatile bool _running;
@@ -112,7 +115,9 @@ public class CameraService : IHostedService, IDisposable
 
     private void CaptureLoop()
     {
+        // CPU yükünü önlemek ve ~30 FPS akış temposunu korumak için bekleme süresi (ms)
         const int sleepMs = 30;
+        // Kamera bağlantısının koptuğunu saymak için izin verilen maksimum boş tur sayısı
         var cameraDropoutThresholdTurns = CameraDropoutThresholdMs / sleepMs;
 
         using var frame = new Mat();
@@ -134,11 +139,10 @@ public class CameraService : IHostedService, IDisposable
                 {
                     AutoStopRecording($"kamera yaklaşık {CameraDropoutThresholdMs / 1000.0:0.#} saniyedir kare vermiyor");
                 }
-
+                // hata anında işlemci boş yere çalışmasın
                 Thread.Sleep(sleepMs);
                 continue;
             }
-
             consecutiveFailedReads = 0;
             lock (_lock)
             {
@@ -214,17 +218,28 @@ public class CameraService : IHostedService, IDisposable
             return null;
         }
 
-        if (!_codecDetected)
-        {
-            DetectWorkingCodec();
-        }
-
         lock (_writerLock)
         {
             if (_isRecording)
             {
                 LastStartFailureReason = "Zaten devam eden bir kayıt var.";
                 return null;
+            }
+
+            // Codec tespiti bilerek _writerLock İÇİNDE yapılıyor (önceden kilidin
+            // dışındaydı). Sebep: _codecDetected kontrolü "önce bak, sonra karar ver"
+            // (check-then-act) türünde bir işlem — kilitsiz olsaydı, 6-7 istemciden
+            // birden fazlası ilk kaydı aynı anda başlatmaya çalışırsa hepsi
+            // _codecDetected'i "false" görüp DetectWorkingCodec()'i AYNI ANDA
+            // çalıştırabilir; bu da _codecFourcc/_codecExtension gibi alanlara
+            // kilitsiz, çakışan yazımlara (birbirini karıştıran, tutarsız bir
+            // codec kombinasyonuna) yol açabilirdi. Artık kilit sayesinde ilk
+            // giren thread tespiti yapıp bitirene kadar diğerleri bekliyor; onlar
+            // sıraya girdiğinde _codecDetected zaten true olduğu için tespiti
+            // tekrar çalıştırmıyorlar.
+            if (!_codecDetected)
+            {
+                DetectWorkingCodec();
             }
 
             var size = new OpenCvSharp.Size(width, height);
