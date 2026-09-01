@@ -147,11 +147,23 @@ public class CaptureDbService
     /// Status=Recording olan en güncel satırı döner. Sayfa yenilendiğinde
     /// ya da sunucu yeniden başlatıldığında "hâlâ kayıt devam ediyor mu?"
     /// sorusuna bu üzerinden cevap verilir.
+    ///
+    /// "roomName" verilirse sadece o odanın kaydına bakar — artık aynı anda
+    /// birden fazla oda kayıt yapabildiği için (bkz. CameraSession), filtre
+    /// olmadan "en güncel" almak YANLIŞ odanın kaydını döndürebilir. roomName
+    /// null geçilirse eski (tek oda varsayan) davranış korunur, sadece
+    /// ReconcileStaleRecordings gibi oda ayrımı gerekmeyen yerlerde kullanılmalı.
     /// </summary>
-    public MediaCapture? GetActiveRecording()
+    public MediaCapture? GetActiveRecording(string? roomName = null)
     {
-        return _db.MediaCaptures
-            .Where(c => c.Status == CaptureStatus.Recording)
+        var query = _db.MediaCaptures.Where(c => c.Status == CaptureStatus.Recording);
+
+        if (roomName != null)
+        {
+            query = query.Where(c => c.RoomName == roomName);
+        }
+
+        return query
             .OrderByDescending(c => c.CapturedAt)
             .FirstOrDefault();
     }
@@ -160,11 +172,22 @@ public class CaptureDbService
     /// Aktif (silinmemiş) kayıtları (fotoğraf + video) en yeniden eskiye döner.
     /// Soft-delete edilmiş (IsActive=false) satırlar bu listede görünmez —
     /// veri hâlâ DB'de duruyor, sadece normal listelemeden gizleniyor.
+    ///
+    /// "roomName" verilirse SADECE o odanın kayıtları döner — oda ekranının
+    /// (index.html) kendi kayıtları dışındaki (başka hastaya ait) kayıtları
+    /// görmemesi için. null geçilirse (admin sayfası) tüm odaların kayıtları
+    /// birlikte döner.
     /// </summary>
-    public List<CaptureListItem> GetCaptures()
+    public List<CaptureListItem> GetCaptures(string? roomName = null)
     {
-        return _db.MediaCaptures
-            .Where(c => c.IsActive)
+        var query = _db.MediaCaptures.Where(c => c.IsActive);
+
+        if (roomName != null)
+        {
+            query = query.Where(c => c.RoomName == roomName);
+        }
+
+        return query
             .OrderByDescending(c => c.CapturedAt)
             .Select(c => new CaptureListItem(
                 c.Id,

@@ -21,15 +21,25 @@ public record CaptureRequest(
 [Route("api")]
 public class CapturesController : ControllerBase
 {
-    private readonly CameraService _camera;
+    // Tarayıcı tarafında (index.html / camera-ws-test.html) kare gönderme
+    // aralığı setInterval(..., 200) yani 200ms = saniyede 5 kare. VideoWriter'a
+    // GERÇEKTE üretilen bu hızı bildirmemiz lazım — aksi halde (örn. varsayılan
+    // 20fps ile yazarsak) dosyada "20fps'lik" diye damgalanan ama aslında 5fps
+    // hızında üretilmiş kareler olur, oynatıcı bunu 4 kat hızlandırılmış oynatır.
+    // Tarayıcıdaki gönderim hızı değişirse BU DEĞER DE değişmeli.
+    private const int WebSocketCameraFps = 5;
+
+    private readonly CameraSessionManager _sessionManager;
+    private readonly CodecDetector _codecDetector;
     private readonly CaptureDbService _db;
     private readonly DeviceIdentityService _device;
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<CapturesController> _logger;
 
-    public CapturesController(CameraService camera, CaptureDbService db, DeviceIdentityService device, IWebHostEnvironment env, ILogger<CapturesController> logger)
+    public CapturesController(CameraSessionManager sessionManager, CodecDetector codecDetector, CaptureDbService db, DeviceIdentityService device, IWebHostEnvironment env, ILogger<CapturesController> logger)
     {
-        _camera = camera;
+        _sessionManager = sessionManager;
+        _codecDetector = codecDetector;
         _db = db;
         _device = device;
         _env = env;
@@ -37,12 +47,12 @@ public class CapturesController : ControllerBase
     }
 
     /// <summary>
-    /// Canlı kamera akışı (MJPEG). &lt;img src="/api/video-feed"&gt; ile
-    /// doğrudan tarayıcıda oynatılabilir; endoskopi kamerasının USB
-    /// üzerinden canlı yayınına karşılık gelir.
+    /// Bir odanın canlı kamera akışı (MJPEG). &lt;img src="/api/rooms/oda1/video-feed"&gt;
+    /// ile doğrudan tarayıcıda oynatılabilir. {roomId}, o odanın tarayıcısının
+    /// /ws-camera/{roomId} üzerinden gönderdiği en son kareyi gösterir.
     /// </summary>
-    [HttpGet("video-feed")]
-    public async Task VideoFeed()
+    [HttpGet("rooms/{roomId}/video-feed")]
+    public async Task VideoFeed(string roomId)
     {
         var token = HttpContext.RequestAborted;
         Response.ContentType = "multipart/x-mixed-replace; boundary=frame";
@@ -51,7 +61,11 @@ public class CapturesController : ControllerBase
         {
             while (!token.IsCancellationRequested)
             {
-                var jpeg = _camera.GetLatestFrameJpeg();
+                // Her turda tekrar bakıyoruz (bir kere değil): oda henüz hiç
+                // bağlanmamışsa session null olabilir, sonradan bağlanınca
+                // akış otomatik başlasın diye.
+                var session = _sessionManager.TryGet(roomId);
+                var jpeg = session?.GetLatestFrameJpeg();
                 if (jpeg != null)
                 {
                     var header = Encoding.ASCII.GetBytes(
@@ -73,26 +87,26 @@ public class CapturesController : ControllerBase
     }
 
     /// <summary>
-    /// Anlık kareyi yakalar (Snapshot). Gerçek cihazda bu tetikleyici seri
-    /// porttan ("PEDAL_CLICK") gelir; burada web arayüzündeki butondan gelir.
-    /// Kare diske .jpg olarak yazılır ve SQLite'a satır olarak eklenir.
+    /// Bir odanın anlık karesini yakalar (Snapshot). Kare diske .jpg olarak
+    /// yazılır ve DB'ye RoomName=roomId ile eklenir.
     /// </summary>
-    [HttpPost("capture")]
-    public IActionResult Capture([FromBody] CaptureRequest? request)
+    [HttpPost("rooms/{roomId}/capture")]
+    public IActionResult Capture(string roomId, [FromBody] CaptureRequest? request)
     {
-        if (!_camera.IsCameraAvailable)
+        var session = _sessionManager.TryGet(roomId);
+        if (session == null || !session.IsLive)
         {
-            return StatusCode(500, new { message = "Kamera bulunamadı ya da başka bir uygulama tarafından kullanılıyor." });
+            return StatusCode(500, new { message = $"'{roomId}' odasından şu an görüntü alınamıyor (tarayıcı bağlı değil ya da henüz kare göndermedi)." });
         }
 
-        using var frame = _camera.GetLatestFrameClone();
+        using var frame = session.GetLatestFrameClone();
         if (frame == null || frame.Empty())
         {
             return StatusCode(500, new { message = "Kameradan henüz bir görüntü karesi alınamadı, birkaç saniye sonra tekrar deneyin." });
         }
 
         var capturedAt = DateTimeOffset.UtcNow;
-        var fileName = $"capture_{capturedAt.ToUnixTimeMilliseconds()}.jpg";
+        var fileName = $"capture_{roomId}_{capturedAt.ToUnixTimeMilliseconds()}.jpg";
 
         var storageDir = Path.Combine(_env.ContentRootPath, "storage");
         Directory.CreateDirectory(storageDir);
@@ -101,88 +115,89 @@ public class CapturesController : ControllerBase
 
         var relativePath = $"/storage/{fileName}";
         var fileSizeBytes = new FileInfo(absoluteFilePath).Length;
-        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: request?.ToContext(), fileSizeBytes: fileSizeBytes, width: frame.Width, height: frame.Height,
+        // RoomName'i route'tan (roomId) alıyoruz, istemcinin gönderdiği (varsa)
+        // CaptureRequest.RoomName'i EZİYORUZ — hangi odadan geldiği, tarayıcının
+        // hangi WebSocket'e bağlandığından (yani route'tan) bellidir, forma
+        // güvenmiyoruz (tıpkı MachineName/IP/MAC'in de istemciden değil
+        // sunucudan gelmesi gibi).
+        var context = (request?.ToContext() ?? new CaptureContext()) with { RoomName = roomId };
+        var id = _db.InsertCapture(CaptureType.Photo, relativePath, capturedAt, request?.TriggerSource ?? "WEB_BUTTON", context: context, fileSizeBytes: fileSizeBytes, width: frame.Width, height: frame.Height,
             machineName: _device.MachineName, localIpAddress: _device.LocalIpAddress, localMacAddress: _device.LocalMacAddress);
 
-        // Dosya artık tam yazılmış durumda (fotoğrafta stream açık kalmıyor,
-        // videodan farklı olarak) — bu yüzden metadata'yı hemen, aynı istekte
-        // yazabiliyoruz. Başarısız olursa capture akışını bozmaz, sadece loglanır.
         FileIdentityTagger.TryWriteCaptureIdentity(absoluteFilePath, _device.MachineName, _device.LocalIpAddress, _device.LocalMacAddress, _logger);
 
-        _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Dosya={FileName}, {Width}x{Height}", id, fileName, frame.Width, frame.Height);
+        _logger.LogInformation("Yeni kare yakalandı: Id={Id}, Oda={RoomId}, Dosya={FileName}, {Width}x{Height}", id, roomId, fileName, frame.Width, frame.Height);
 
         return Ok(new { id, filePath = relativePath, capturedAt });
     }
 
     /// <summary>
-    /// Video kaydını başlatır. Fotoğraftan farklı olarak tek istekte bitmez:
-    /// bu, DB'de Status='recording' bir satır açar ve CameraService'e her kareyi
-    /// tek bir dosyaya diske yazmasını söyler; asıl kayıt "stop" isteği gelene
-    /// kadar arka planda, capture loop'un içinden, kare kare devam eder.
+    /// Bir odanın video kaydını başlatır. DB'de Status='recording' bir satır
+    /// açar; asıl kayıt "stop" isteği gelene (ya da bağlantı kopana) kadar
+    /// arka planda, o odanın WebSocket bağlantısından gelen her karede devam eder.
     /// </summary>
-    [HttpPost("capture/video/start")]
-    public IActionResult StartVideoCapture([FromBody] CaptureRequest? request)
+    [HttpPost("rooms/{roomId}/capture/video/start")]
+    public IActionResult StartVideoCapture(string roomId, [FromBody] CaptureRequest? request)
     {
-        if (!_camera.IsCameraAvailable)
+        var session = _sessionManager.GetOrCreate(roomId);
+        if (!session.IsLive)
         {
-            return StatusCode(500, new { message = "Kamera bulunamadı ya da başka bir uygulama tarafından kullanılıyor." });
+            return StatusCode(500, new { message = $"'{roomId}' odasından şu an görüntü alınamıyor (tarayıcı bağlı değil ya da henüz kare göndermedi)." });
         }
 
-        if (_camera.IsRecording)
+        if (session.IsRecording)
         {
-            return Conflict(new { message = "Zaten devam eden bir video kaydı var. Önce onu durdurun." });
+            return Conflict(new { message = "Bu odada zaten devam eden bir video kaydı var. Önce onu durdurun." });
         }
 
         var startedAt = DateTimeOffset.UtcNow;
-        var baseFileName = $"video_{startedAt.ToUnixTimeMilliseconds()}";
+        var baseFileName = $"video_{roomId}_{startedAt.ToUnixTimeMilliseconds()}";
 
         var storageDir = Path.Combine(_env.ContentRootPath, "storage");
         Directory.CreateDirectory(storageDir);
 
         // Önce kamerayı/codec'i başlatmayı deniyoruz; ancak başarılı olursa DB
-        // satırını açıyoruz. Böylece kamera hatasında yarım kalan bir DB satırı
-        // oluşmuyor (rollback'e gerek kalmıyor).
-        var actualFilePath = _camera.StartRecording(storageDir, baseFileName);
+        // satırını açıyoruz. Böylece hatada yarım kalan bir DB satırı oluşmuyor.
+        var codec = _codecDetector.GetCodec();
+        var actualFilePath = session.StartRecording(storageDir, baseFileName, codec, fps: WebSocketCameraFps);
         if (actualFilePath == null)
         {
-            var reason = _camera.LastStartFailureReason ?? "Video kaydı başlatılamadı (codec ya da dosya hatası).";
+            var reason = session.LastStartFailureReason ?? "Video kaydı başlatılamadı (codec ya da dosya hatası).";
             return StatusCode(500, new { message = reason });
         }
 
         var relativePath = $"/storage/{Path.GetFileName(actualFilePath)}";
-        // Dosyanın kendi metadata'sına burada YAZMIYORUZ: VideoWriter dosyayı hâlâ
-        // açık tutuyor, kayıt sürerken TagLibSharp ile açmaya çalışmak dosya
-        // kilidiyle çakışır. Kimlik bilgisi DB'ye şimdi yazılıyor, dosyaya ise
-        // kayıt kapandığında (StopVideoCapture / otomatik durma) yazılacak.
-        var id = _db.InsertCapture(CaptureType.Video, relativePath, startedAt, request?.TriggerSource ?? "WEB_BUTTON", status: CaptureStatus.Recording, context: request?.ToContext(),
+        var context = (request?.ToContext() ?? new CaptureContext()) with { RoomName = roomId };
+        var id = _db.InsertCapture(CaptureType.Video, relativePath, startedAt, request?.TriggerSource ?? "WEB_BUTTON", status: CaptureStatus.Recording, context: context,
             machineName: _device.MachineName, localIpAddress: _device.LocalIpAddress, localMacAddress: _device.LocalMacAddress);
 
-        _logger.LogInformation("Video kaydı başladı: Id={Id}, Dosya={FileName}", id, relativePath);
+        _logger.LogInformation("Video kaydı başladı: Id={Id}, Oda={RoomId}, Dosya={FileName}", id, roomId, relativePath);
 
         return Ok(new { id, filePath = relativePath, startedAt });
     }
 
     /// <summary>
-    /// Devam eden video kaydını durdurur, dosyayı finalize eder, dosyanın gerçekten
-    /// oynatılabilir olduğunu doğrular ve DB satırını buna göre günceller:
-    /// doğrulama başarılıysa Status='completed', başarısızsa Status='corrupted'.
+    /// Bir odanın devam eden video kaydını durdurur, dosyayı finalize eder,
+    /// gerçekten oynatılabilir olup olmadığını doğrular ve DB satırını buna göre
+    /// günceller: doğrulama başarılıysa Status='completed', başarısızsa Status='corrupted'.
     /// </summary>
-    [HttpPost("capture/video/stop")]
-    public IActionResult StopVideoCapture()
+    [HttpPost("rooms/{roomId}/capture/video/stop")]
+    public IActionResult StopVideoCapture(string roomId)
     {
-        if (!_camera.IsRecording)
+        var session = _sessionManager.TryGet(roomId);
+        if (session == null || !session.IsRecording)
         {
             return BadRequest(new { message = "Devam eden bir video kaydı yok." });
         }
 
-        var recording = _db.GetActiveRecording();
-        var stopResult = _camera.StopRecording();
+        var recording = _db.GetActiveRecording(roomId);
+        var stopResult = session.StopRecording();
 
         if (stopResult == null)
         {
-            // Bu istek işlenirken kayıt başka bir sebeple (kamera koptu, disk doldu)
-            // zaten otomatik durmuş olabilir. DB'yi burada tekrar güncellemiyoruz ki
-            // oradaki (muhtemelen 'interrupted') durumu ezmeyelim.
+            // Bu istek işlenirken kayıt başka bir sebeple (bağlantı koptu, disk
+            // doldu) zaten otomatik durmuş olabilir. DB'yi burada tekrar
+            // güncellemiyoruz ki oradaki (muhtemelen 'interrupted') durumu ezmeyelim.
             return Ok(new { message = "Kayıt zaten durmuştu (muhtemelen otomatik olarak durduruldu)." });
         }
 
@@ -197,16 +212,11 @@ public class CapturesController : ControllerBase
 
         _db.CompleteVideoCapture(recording.Id, endedAt, durationMs, finalStatus, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes);
 
-        // Dosya artık finalize edildi (VideoWriter kapandı) — kimlik bilgisini
-        // burada, kayıt anında InsertCapture ile DB'ye yazılmış olan aynı
-        // değerlerden (recording entity üzerinden) dosyanın içine de yazıyoruz.
-        // Doğrulama başarısız olsa (Corrupted) bile deniyoruz — dosya bozuksa
-        // zaten TagLibSharp da açamayıp sessizce başarısız olacaktır.
         FileIdentityTagger.TryWriteCaptureIdentity(stopResult.FilePath, recording.MachineName ?? _device.MachineName, recording.LocalIpAddress, recording.LocalMacAddress, _logger);
 
         _logger.LogInformation(
-            "Video kaydı durdu: Id={Id}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, Doğrulandı={Verified}",
-            recording.Id, durationMs, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes, stopResult.IsPlaybackVerified);
+            "Video kaydı durdu: Id={Id}, Oda={RoomId}, Süre={DurationMs}ms, {Width}x{Height}, {FrameCount} kare, {FileSizeBytes} byte, Doğrulandı={Verified}",
+            recording.Id, roomId, durationMs, stopResult.Width, stopResult.Height, stopResult.FrameCount, stopResult.FileSizeBytes, stopResult.IsPlaybackVerified);
 
         return Ok(new
         {
@@ -222,21 +232,31 @@ public class CapturesController : ControllerBase
     }
 
     /// <summary>
-    /// Sayfa yenilendiğinde ya da tarayıcı yeniden açıldığında "hâlâ devam eden
-    /// bir kayıt var mı?" diye sormak için. Kayıt server-side olduğu için
-    /// tarayıcı kapansa bile kayıt durmaz; bu endpoint UI'ın durumu senkronlaması içindir.
+    /// Bir odanın "hâlâ kayıt devam ediyor mu, kamera canlı mı" durumunu döner.
+    /// Sayfa yenilendiğinde UI'ın durumu senkronlaması içindir.
     /// </summary>
-    [HttpGet("capture/video/status")]
-    public IActionResult GetVideoStatus()
+    [HttpGet("rooms/{roomId}/capture/video/status")]
+    public IActionResult GetVideoStatus(string roomId)
     {
-        return Ok(new { isRecording = _camera.IsRecording, capture = _db.GetActiveRecording() });
+        var session = _sessionManager.TryGet(roomId);
+        return Ok(new
+        {
+            isRecording = session?.IsRecording ?? false,
+            isLive = session?.IsLive ?? false,
+            capture = _db.GetActiveRecording(roomId)
+        });
     }
 
-    /// <summary>Aktif (silinmemiş) tüm kayıtları (fotoğraf + video) en yeniden eskiye listeler.</summary>
+    /// <summary>
+    /// Kayıtları en yeniden eskiye listeler. "roomId" verilmezse TÜM odaların
+    /// kayıtları birlikte döner (admin sayfası bunu kullanır); "roomId" verilirse
+    /// sadece o odanın kayıtları döner (oda ekranı, index.html, kendi odasıyla
+    /// filtreleyerek çağırır — başka odanın/hastanın kaydını görmesin diye).
+    /// </summary>
     [HttpGet("captures")]
-    public IActionResult GetCaptures()
+    public IActionResult GetCaptures([FromQuery] string? roomId = null)
     {
-        return Ok(_db.GetCaptures());
+        return Ok(_db.GetCaptures(roomId));
     }
 
     /// <summary>
@@ -260,11 +280,7 @@ public class CapturesController : ControllerBase
 
     /// <summary>
     /// Bir kaydın Width/Height/FrameCount/FileSizeBytes bilgisini, dosyanın
-    /// kendisini YENİDEN OKUYARAK tazeler. "Bu alanlar DB'de eklenmeden önce
-    /// kaydedilmiş eski dosyaları doldur" (backfill) ya da "bir şeyler
-    /// yanlış görünüyor, dosyadan tekrar ölç" senaryoları için — Windows'un
-    /// Özellikler penceresiyle bir ilgisi yok, doğrudan dosyayı OpenCV ile açıp
-    /// ölçüyoruz (bkz. CameraService.ReadVideoFileMetadata).
+    /// kendisini YENİDEN OKUYARAK tazeler (backfill / manuel düzeltme).
     /// </summary>
     [HttpPost("captures/{id}/refresh-metadata")]
     public IActionResult RefreshMetadata(long id)
@@ -287,7 +303,7 @@ public class CapturesController : ControllerBase
 
         if (capture.CaptureType == CaptureType.Video)
         {
-            var meta = _camera.ReadVideoFileMetadata(physicalPath);
+            var meta = VideoFileMetadataReader.Read(physicalPath);
             if (meta != null)
             {
                 (width, height, frameCount) = meta.Value;

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Endoskopi — Admin Görünümü (Tüm Odalar)</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 24px; background: #f4f6f8; color: #1a1a1a; }
+    h2 { margin-bottom: 4px; }
+    .subtitle { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+    .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); max-width: 1100px; }
+    button { padding: 10px 18px; font-size: 15px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 12px; margin-right: 8px; }
+    button:hover { background: #0052a3; }
+    button.secondary { background: #28a745; }
+    button.secondary:hover { background: #1e7e34; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-photo { background: #e7f1ff; color: #0066cc; }
+    .badge-video { background: #ffe9e9; color: #cc0000; }
+    .badge-recording { background: #fff3cd; color: #997404; }
+    .badge-interrupted { background: #ffe5cc; color: #a35400; }
+    .badge-corrupted { background: #2b2b2b; color: #ff6b6b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #f0f2f5; }
+    .thumb { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; }
+    .video-thumb { width: 120px; height: 60px; object-fit: cover; border-radius: 4px; background: #000; }
+    .status { margin-top: 10px; font-size: 13px; color: #444; min-height: 18px; }
+    .room-filter { margin-top: 10px; }
+    .room-filter input { padding: 8px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h2>Admin Görünümü</h2>
+  <p class="subtitle">Tüm odaların kayıtlarını birlikte gösterir — oda ekranlarının (index.html) aksine burada oda filtresi YOK (isteğe bağlı hariç, aşağıda).</p>
+
+  <div class="panel">
+    <button class="secondary" onclick="loadCaptures()">🔄 Listeyi Yenile</button>
+
+    <div class="room-filter">
+      <label for="room-filter-input" style="font-size: 13px; color: #666;">İsteğe bağlı: sadece bir odayı görmek için oda kimliği yaz (boş = hepsi):</label><br>
+      <input id="room-filter-input" type="text" placeholder="örn. oda1 (boş bırak = tüm odalar)" onchange="loadCaptures()" />
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Önizleme</th>
+          <th>ID</th>
+          <th>Tür</th>
+          <th>Oda</th>
+          <th>Hasta / Doktor / Prosedür</th>
+          <th>Tetikleyici</th>
+          <th>Zaman (UTC)</th>
+          <th>Süre / Durum</th>
+          <th>İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="captures-table"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const roomFilterInput = document.getElementById('room-filter-input');
+
+    function formatFileSize(bytes) {
+      if (bytes == null) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    function typeBadge(item) {
+      const badge = (() => {
+        if (item.captureType === 'video') {
+          switch (item.status) {
+            case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
+            case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
+            case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
+            default: return '<span class="badge badge-video">🎥 Video</span>';
+          }
+        }
+        return '<span class="badge badge-photo">📷 Fotoğraf</span>';
+      })();
+
+      const bits = [];
+      if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
+      if (item.fileSizeBytes != null) bits.push(formatFileSize(item.fileSizeBytes));
+      const infoLine = bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
+
+      return badge + infoLine;
+    }
+
+    function durationOrStatus(item) {
+      if (item.captureType !== 'video') return '—';
+      if (item.status === 'recording') return '<span style="color:#cc0000">devam ediyor…</span>';
+      if (item.durationMs != null) {
+        const seconds = `${Math.round(item.durationMs / 1000)} sn`;
+        const main = item.status === 'interrupted' ? `~${seconds} (tahmini)` : seconds;
+        return main + techInfoLine(item);
+      }
+      return '—';
+    }
+
+    function techInfoLine(item) {
+      const bits = [];
+      if (item.frameCount != null && item.durationMs) {
+        const fps = (item.frameCount / (item.durationMs / 1000)).toFixed(1);
+        bits.push(`${item.frameCount} kare (~${fps}fps)`);
+      }
+      return bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
+    }
+
+    function contextCell(item) {
+      const parts = [];
+      if (item.patientName || item.patientIdentifier) {
+        const idSuffix = item.patientIdentifier ? ` (${item.patientIdentifier})` : '';
+        parts.push(`<strong>${item.patientName ?? 'İsimsiz hasta'}</strong>${idSuffix}`);
+      }
+      if (item.doctorName) parts.push(item.doctorName);
+      if (item.procedureType) parts.push(item.procedureType);
+      if (item.createdByName) parts.push(`<span style="color:#999">Oluşturan: ${item.createdByName}</span>`);
+
+      return parts.length > 0
+        ? parts.join('<br>')
+        : '<span style="color:#aaa">—</span>';
+    }
+
+    function previewCell(item) {
+      if (item.captureType === 'video') {
+        if (item.status === 'recording') {
+          return '<span style="color:#cc0000">⏳ kayıt sürüyor…</span>';
+        }
+        return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
+      }
+      return `<img src="${item.filePath}" class="thumb" />`;
+    }
+
+    async function loadCaptures() {
+      const roomFilter = roomFilterInput.value.trim();
+      // roomId parametresi verilmezse (boşsa) sunucu TÜM odaları döner — admin
+      // görünümünün amacı bu. Doldurulursa tek bir odaya daraltılabiliyor.
+      const url = roomFilter ? `/api/captures?roomId=${encodeURIComponent(roomFilter)}` : '/api/captures';
+
+      const res = await fetch(url);
+      const data = await res.json();
+      const tbody = document.getElementById('captures-table');
+      tbody.innerHTML = '';
+
+      statusEl.textContent = roomFilter
+        ? `"${roomFilter}" odasının kayıtları gösteriliyor (${data.length} kayıt).`
+        : `Tüm odaların kayıtları gösteriliyor (${data.length} kayıt).`;
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9">Kayıt yok.</td></tr>';
+        return;
+      }
+
+      data.forEach(item => {
+        const isRecordingRow = item.status === 'recording';
+        const deleteBtn = isRecordingRow
+          ? ''
+          : `<button style="background:#cc0000;padding:6px 10px;font-size:12px;margin:0;" onclick="deleteCapture(${item.id})">🗑 Sil</button>`;
+        const refreshBtn = isRecordingRow
+          ? ''
+          : `<button style="background:#555;padding:6px 10px;font-size:12px;margin:0;" onclick="refreshMetadata(${item.id})">🔄 Yenile</button>`;
+
+        const row = `
+          <tr>
+            <td>${previewCell(item)}</td>
+            <td>${item.id}</td>
+            <td>${typeBadge(item)}</td>
+            <td>${item.roomName ?? '<span style="color:#aaa">—</span>'}</td>
+            <td>${contextCell(item)}</td>
+            <td>${item.triggerSource}</td>
+            <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
+            <td>${durationOrStatus(item)}</td>
+            <td>${refreshBtn} ${deleteBtn}</td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
+      });
+    }
+
+    async function refreshMetadata(id) {
+      statusEl.textContent = `Id=${id} için dosya bilgileri yeniden okunuyor...`;
+      try {
+        const response = await fetch(`/api/captures/${id}/refresh-metadata`, { method: 'POST' });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Yenileme hatası: ' + (err.message || response.statusText);
+          return;
+        }
+        await response.json();
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    async function deleteCapture(id) {
+      if (!confirm(`Id=${id} olan kaydı listeden kaldırmak istediğinize emin misiniz? (Dosya silinmez, sadece listeden gizlenir.)`)) {
+        return;
+      }
+      try {
+        const response = await fetch(`/api/captures/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Silme hatası: ' + (err.message || response.statusText);
+          return;
+        }
+        statusEl.textContent = `Id=${id} listeden kaldırıldı.`;
+        loadCaptures();
+      } catch (e) {
+        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
+      }
+    }
+
+    loadCaptures();
+  </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Oda Bazlı Kamera Testi</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f4f6f8;
+            max-width: 700px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .room-picker {
+            margin-bottom: 16px;
+        }
+
+        .room-picker input {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        video {
+            border: 1px solid #999;
+            background: #000;
+        }
+
+        .buttons {
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-right: 8px;
+            margin-bottom: 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #0066cc;
+            color: white;
+        }
+
+        button:hover { background: #0052a3; }
+        button.danger { background: #cc0000; }
+        button.danger:hover { background: #a30000; }
+
+        #log {
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 13px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        ⚠️ Bu, gerçek uygulamaya entegre edilmiş <strong>oda bazlı kamera akışı</strong> test sayfası.
+        Kamera görüntüsü buradan WebSocket ile sunucuya gidiyor; fotoğraf/video butonları
+        gerçek veritabanına yazıyor (RoomName = seçtiğin oda kimliği).
+    </div>
+
+    <h2>Oda Bazlı Kamera Testi</h2>
+
+    <div class="room-picker">
+        Oda kimliği: <input type="text" id="roomIdInput" value="oda1" />
+        <button onclick="connect()">Bağlan</button>
+    </div>
+
+    <video id="video" autoplay playsinline width="320" height="240"></video>
+    <canvas id="canvas" width="320" height="240" style="display:none"></canvas>
+
+    <div class="buttons">
+        <button onclick="takePhoto()">📷 Fotoğraf Çek</button>
+        <button onclick="startRecording()">⏺ Kayıt Başlat</button>
+        <button class="danger" onclick="stopRecording()">⏹ Kayıt Durdur</button>
+        <button onclick="checkStatus()">🔄 Durum Sorgula</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const logDiv = document.getElementById('log');
+        const roomIdInput = document.getElementById('roomIdInput');
+
+        // URL'de ?room=... verilmişse başlangıç değeri olarak kullan.
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('room')) roomIdInput.value = urlParams.get('room');
+
+        let socket = null;
+        let sendInterval = null;
+        let frameCount = 0;
+
+        function addLog(message) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function roomId() {
+            return roomIdInput.value.trim() || 'oda1';
+        }
+
+        let localStream = null; // kamera akışı bir kere açılır, "Bağlan"a tekrar basılsa da tekrar açılmaz
+
+        function connect() {
+            if (socket) {
+                socket.close();
+                clearInterval(sendInterval);
+            }
+            frameCount = 0;
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId()}`);
+            socket.binaryType = 'arraybuffer';
+
+            socket.onopen = () => addLog(`🟢 Sunucuya bağlanıldı: Oda="${roomId()}"`);
+            socket.onclose = () => addLog("🔴 Bağlantı kapandı.");
+            socket.onerror = () => addLog("⚠️ WebSocket hatası.");
+
+            // Kamerayı sadece ilk seferinde açıyoruz (bkz. index.html'deki aynı
+            // düzeltme) — tekrar "Bağlan"a basılınca eski akış hiç kapatılmadan
+            // yeni bir tane açılmasın diye.
+            if (localStream) {
+                startSending();
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    localStream = stream;
+                    video.srcObject = stream;
+                    addLog("🎥 Kameraya erişildi.");
+                    startSending();
+                })
+                .catch(err => addLog(`❌ Kamera hatası: ${err.message}`));
+        }
+
+        function startSending() {
+            sendInterval = setInterval(() => {
+                if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    blob.arrayBuffer().then(buf => {
+                        socket.send(buf);
+                        frameCount++;
+                        if (frameCount % 25 === 1) {
+                            addLog(`📤 Kare #${frameCount} gönderildi (${buf.byteLength} byte)`);
+                        }
+                    });
+                }, 'image/jpeg', 0.7);
+            }, 200); // ~5 kare/saniye
+        }
+
+        async function apiCall(path, method) {
+            try {
+                const res = await fetch(`/api/rooms/${roomId()}${path}`, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: method === 'POST' ? JSON.stringify({ triggerSource: 'WEB_BUTTON' }) : undefined
+                });
+                const body = await res.json().catch(() => ({}));
+                addLog(`${method} ${path} -> HTTP ${res.status}: ${JSON.stringify(body)}`);
+            } catch (err) {
+                addLog(`❌ İstek hatası (${path}): ${err.message}`);
+            }
+        }
+
+        function takePhoto() { apiCall('/capture', 'POST'); }
+        function startRecording() { apiCall('/capture/video/start', 'POST'); }
+        function stopRecording() { apiCall('/capture/video/stop', 'POST'); }
+        function checkStatus() { apiCall('/capture/video/status', 'GET'); }
+
+        // Sayfa açılır açılmaz varsayılan oda ile otomatik bağlan.
+        connect();
+    </script>
+</body>
+</html>
