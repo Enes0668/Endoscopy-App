@@ -177,6 +177,14 @@ public class CaptureDbService
     /// (index.html) kendi kayıtları dışındaki (başka hastaya ait) kayıtları
     /// görmemesi için. null geçilirse (admin sayfası) tüm odaların kayıtları
     /// birlikte döner.
+    ///
+    /// Özel odalarda (bkz. CameraSession) birden fazla kamera olabiliyor; her
+    /// kamera kendi alt-oda kimliğiyle ("oda1-cam1", "oda1-cam2" gibi) ayrı bir
+    /// CameraSession/kayıt olarak tutuluyor. Oda ekranı yine de TEK bir oda
+    /// kimliği ("oda1") ile sorgu attığı için, burada "roomName" ile TAM eşleşen
+    /// VEYA "roomName-cam" ile BAŞLAYAN satırları birlikte döndürüyoruz — böylece
+    /// tek kameralı odalar ("oda1") ve çok kameralı odaların alt-kameraları
+    /// ("oda1-cam1", "oda1-cam2") aynı oda ekranının tablosunda birlikte görünür.
     /// </summary>
     public List<CaptureListItem> GetCaptures(string? roomName = null)
     {
@@ -184,7 +192,8 @@ public class CaptureDbService
 
         if (roomName != null)
         {
-            query = query.Where(c => c.RoomName == roomName);
+            var subRoomPrefix = roomName + "-cam";
+            query = query.Where(c => c.RoomName == roomName || (c.RoomName != null && c.RoomName.StartsWith(subRoomPrefix)));
         }
 
         return query

@@ -10,8 +10,11 @@
     .subtitle { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
     .container { display: flex; gap: 20px; flex-wrap: wrap; }
     .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-    .video-box { width: 480px; height: 360px; background: #111; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .cameras-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+    .camera-card { width: 420px; }
+    .video-box { width: 420px; height: 315px; background: #111; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .video-box img, .video-box video { width: 100%; height: 100%; object-fit: cover; }
+    .camera-title { font-size: 12px; color: #666; margin-bottom: 4px; }
     button { padding: 10px 18px; font-size: 15px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 12px; margin-right: 8px; }
     button:hover { background: #0052a3; }
     button.secondary { background: #28a745; }
@@ -19,10 +22,10 @@
     button.recording { background: #cc0000; }
     button.recording:hover { background: #a30000; }
     select { padding: 9px 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; margin-top: 12px; }
-    .context-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .context-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; max-width: 480px; }
     .context-form input { padding: 8px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
     .context-form label { font-size: 11px; color: #666; display: block; margin-bottom: 2px; }
-    .context-note { font-size: 11px; color: #999; margin-top: 4px; }
+    .context-note { font-size: 11px; color: #999; margin-top: 4px; max-width: 480px; }
     .rec-indicator { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 13px; color: #cc0000; font-weight: 600; }
     .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #cc0000; animation: blink 1s infinite; }
     @keyframes blink { 50% { opacity: 0.2; } }
@@ -43,42 +46,32 @@
 </head>
 <body>
   <h2>Endoskopi Web Prototipi</h2>
-  <p class="subtitle">Bilgisayar kamerası → Backend (ASP.NET Core / OpenCvSharp) → PostgreSQL veritabanı</p>
+  <p class="subtitle">Tarayıcı kamerası(ları) → WebSocket → Backend (ASP.NET Core / OpenCvSharp) → PostgreSQL veritabanı</p>
 
   <div class="container">
     <!-- Canlı Kamera Paneli -->
     <div class="panel">
       <h3>Canlı Kamera Yayını</h3>
 
-      <!-- Oda kimliği: artık kamera bu makinenin kendisinde değil, tarayıcıdan
-           WebSocket ile sunucuya akıtılıyor (bkz. /ws-camera/{roomId}). Bu
-           bilgisayar hangi odadaysa, o oda kimliğini burada belirtiyoruz —
-           tüm fotoğraf/video işlemleri buna göre yönlendiriliyor. -->
+      <!-- Oda kimliği: bu bilgisayarda kaç fiziksel kamera varsa (dahili webcam,
+           ikinci bir USB kamera, OBS sanal kamera vb.) hepsi otomatik bulunup
+           bağlanır. Özel odalarda (2 kamera tek cihaza bağlı) her kamera kendi
+           alt-oda kimliğini alır (oda1-cam1, oda1-cam2 gibi); tek kameralı
+           normal odalarda eskisi gibi tek bir "oda1" kullanılır - davranış
+           değişmiyor. Bkz. Services/CameraSession.cs (her kamera kendi izole
+           oturumu) ve CaptureDbService.GetCaptures (alt-kameraları da oda
+           tablosunda birlikte gösterme mantığı). -->
       <div style="margin-bottom: 10px;">
         <label for="room-id-input" style="font-size: 13px; color: #666;">Bu istasyonun oda kimliği:</label><br>
         <input id="room-id-input" type="text" value="oda1" style="padding: 6px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;" onchange="onRoomIdChange()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); onRoomIdChange(); this.blur(); }" />
         <button onclick="onRoomIdChange()" style="padding: 6px 12px; font-size: 13px; margin: 0 0 0 4px;">✓ Onayla</button>
+        <button onclick="setupCameras()" style="padding: 6px 12px; font-size: 13px; background: #555;">🔄 Kameraları Yenile</button>
       </div>
 
-      <div class="video-box">
-        <video id="local-video" autoplay playsinline muted></video>
-        <canvas id="capture-canvas" style="display:none"></canvas>
-      </div>
-
-      <div>
-        <select id="mode-select" onchange="onModeChange()">
-          <option value="photo">📷 Fotoğraf</option>
-          <option value="video">🎥 Video</option>
-        </select>
-        <button id="action-btn" onclick="onActionClick()">📸 Kare Yakala & DB'ye Kaydet</button>
-        <span class="rec-indicator" id="rec-indicator" style="display:none;">
-          <span class="rec-dot"></span> Kayıtta — <span id="rec-timer">00:00</span>
-        </span>
-      </div>
+      <div class="cameras-grid" id="cameras-grid"></div>
 
       <!-- Bu kaydın kime/hangi işleme ait olduğu — hepsi opsiyonel, boş -->
-      <!-- bırakılabilir. DB'ye InsertCapture ile birlikte gidiyor. "Oda" artık -->
-      <!-- yukarıdaki oda kimliğinden otomatik geliyor, burada ayrıca sorulmuyor. -->
+      <!-- bırakılabilir, TÜM kameralar için ORTAK (aynı oda/prosedür). -->
       <div class="context-form">
         <div>
           <label for="ctx-patient-id">Hasta No (MRN)</label>
@@ -101,7 +94,7 @@
           <input id="ctx-created-by" type="text" placeholder="örn. Hemşire Zeynep" />
         </div>
       </div>
-      <div class="context-note">Bu bilgiler isteğe bağlıdır; boş bırakılırsa kayıt yine de yapılır, ama listede kime ait olduğu görünmez.</div>
+      <div class="context-note">Bu bilgiler isteğe bağlıdır; boş bırakılırsa kayıt yine de yapılır, ama listede kime ait olduğu görünmez. Birden fazla kamera varsa, hepsinin kaydına aynı hasta/prosedür bilgisi yazılır.</div>
 
       <div class="status" id="status"></div>
     </div>
@@ -130,94 +123,161 @@
 
   <script>
     const statusEl = document.getElementById('status');
-    const modeSelect = document.getElementById('mode-select');
-    const actionBtn = document.getElementById('action-btn');
-    const recIndicator = document.getElementById('rec-indicator');
-    const recTimer = document.getElementById('rec-timer');
-
-    let isRecording = false;
-    let recordingStartedAt = null;
-    let timerInterval = null;
-
-    // --- Oda kimliği ve kamera akışı (bkz. WebSocketDemo prototipi) ---
-    // Kamera artık bu sunucuda değil, BU TARAYICIDA açılıyor (getUserMedia) ve
-    // WebSocket ile /ws-camera/{roomId}'ye akıtılıyor. Sunucu tarafı bunu bir
-    // CameraSession'da tutuyor (bkz. Services/CameraSession.cs), tüm foto/video
-    // endpoint'leri de bu oda kimliğine göre yönlendiriliyor (/api/rooms/{roomId}/...).
-    const localVideo = document.getElementById('local-video');
-    const captureCanvas = document.getElementById('capture-canvas');
-    const captureCtx = captureCanvas.getContext('2d');
     const roomIdInput = document.getElementById('room-id-input');
+    const camerasGrid = document.getElementById('cameras-grid');
 
-    let cameraSocket = null;
-    let cameraSendInterval = null;
-
-    function roomId() {
+    function baseRoomId() {
       return roomIdInput.value.trim() || 'oda1';
     }
 
     function onRoomIdChange() {
-      statusEl.textContent = `Oda kimliği "${roomId()}" olarak değiştirildi, kamera yeniden bağlanıyor...`;
-      connectCamera();
-      loadCaptures(); // tablo da yeni odanın kayıtlarını göstersin
+      statusEl.textContent = `Oda kimliği "${baseRoomId()}" olarak değiştirildi, kameralar yeniden bağlanıyor...`;
+      setupCameras();
+      loadCaptures();
     }
 
-    let localStream = null; // kamera akışı bir kere açılır, oda değişse de tekrar açılmaz
+    // --- Çoklu kamera desteği ---
+    // Her tespit edilen kamera için, activeCameras dizisinde bağımsız bir
+    // "durum nesnesi" tutuyoruz (kendi socket'i, kendi kayıt durumu, kendi DOM
+    // elemanları). Bu, sunucudaki CameraSession izolasyonunun (bkz. bugünkü
+    // thread-safety konuşması) tarayıcı tarafındaki karşılığı: bir kameranın
+    // durumu, başka bir kameranınkiyle hiç karışmıyor.
+    let activeCameras = [];
 
-    function connectCamera() {
-      if (cameraSocket) {
-        cameraSocket.close();
-        clearInterval(cameraSendInterval);
+    async function setupCameras() {
+      // Önceki kameraları temizle (varsa) — bağlantıları kapat, akışları durdur.
+      activeCameras.forEach(cam => {
+        cam.socket?.close();
+        clearInterval(cam.sendInterval);
+        clearInterval(cam.timerInterval);
+        cam.stream?.getTracks().forEach(t => t.stop());
+      });
+      activeCameras = [];
+      camerasGrid.innerHTML = '';
+
+      try {
+        // Cihaz isimlerini görebilmek için önce izin almamız lazım (gizlilik
+        // önlemi: izin verilmeden enumerateDevices boş/isimsiz döner).
+        const permStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        permStream.getTracks().forEach(t => t.stop());
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter(d => d.kind === 'videoinput');
+
+        if (cams.length === 0) {
+          statusEl.textContent = 'Hiç kamera bulunamadı.';
+          return;
+        }
+
+        statusEl.textContent = `${cams.length} kamera bulundu, bağlanılıyor...`;
+        cams.forEach((cam, index) => setupOneCamera(cam.deviceId, cam.label, index, cams.length));
+      } catch (err) {
+        statusEl.textContent = 'Kamera hatası: ' + err.message;
+      }
+    }
+
+    function setupOneCamera(deviceId, label, index, total) {
+      // Tek kameralı (normal) bir odada eskisi gibi düz oda kimliği kullanılır
+      // (geriye dönük uyumluluk). Birden fazla kamera varsa (özel odalar),
+      // her biri kendi alt-oda kimliğini alır.
+      const roomId = total <= 1 ? baseRoomId() : `${baseRoomId()}-cam${index + 1}`;
+
+      const card = document.createElement('div');
+      card.className = 'camera-card';
+      card.innerHTML = `
+        <div class="camera-title">${label || ('Kamera ' + (index + 1))} ${total > 1 ? `→ Oda: <code>${roomId}</code>` : ''}</div>
+        <div class="video-box"><video autoplay playsinline muted></video></div>
+        <canvas style="display:none"></canvas>
+        <div>
+          <select class="mode-select">
+            <option value="photo">📷 Fotoğraf</option>
+            <option value="video">🎥 Video</option>
+          </select>
+          <button class="action-btn">📸 Kare Yakala &amp; DB'ye Kaydet</button>
+          <span class="rec-indicator" style="display:none;">
+            <span class="rec-dot"></span> Kayıtta — <span class="rec-timer">00:00</span>
+          </span>
+        </div>
+      `;
+      camerasGrid.appendChild(card);
+
+      const videoEl = card.querySelector('video');
+      const canvas = card.querySelector('canvas');
+      const ctx = canvas.getContext('2d');
+      const modeSelect = card.querySelector('.mode-select');
+      const actionBtn = card.querySelector('.action-btn');
+      const recIndicator = card.querySelector('.rec-indicator');
+      const recTimer = card.querySelector('.rec-timer');
+
+      const cam = {
+        roomId, deviceId, stream: null, socket: null, sendInterval: null,
+        isRecording: false, recordingStartedAt: null, timerInterval: null,
+        videoEl, canvas, ctx, modeSelect, actionBtn, recIndicator, recTimer
+      };
+      activeCameras.push(cam);
+
+      function updateButtonForMode() {
+        if (cam.isRecording) return; // kayıt sürerken buton metnini değiştirme
+        if (modeSelect.value === 'photo') {
+          actionBtn.textContent = "📸 Kare Yakala & DB'ye Kaydet";
+          actionBtn.classList.remove('recording');
+        } else {
+          actionBtn.textContent = '⏺ Video Kaydını Başlat';
+          actionBtn.classList.remove('recording');
+        }
       }
 
+      modeSelect.addEventListener('change', () => {
+        if (cam.isRecording) {
+          modeSelect.value = 'video';
+          statusEl.textContent = 'Devam eden video kaydını durdurmadan mod değiştiremezsiniz.';
+          return;
+        }
+        updateButtonForMode();
+      });
+
+      actionBtn.addEventListener('click', () => {
+        if (modeSelect.value === 'photo') {
+          takeSnapshot(cam);
+        } else {
+          cam.isRecording ? stopRecording(cam) : startRecording(cam);
+        }
+      });
+
+      updateButtonForMode();
+
+      // WebSocket bağlantısı
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      cameraSocket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId()}`);
-      cameraSocket.binaryType = 'arraybuffer';
+      cam.socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId}`);
+      cam.socket.binaryType = 'arraybuffer';
+      cam.socket.onopen = () => { statusEl.textContent = `Kameraya bağlanıldı (Oda: ${roomId}).`; };
+      cam.socket.onerror = () => { statusEl.textContent = `Kamera bağlantısında hata: ${roomId}`; };
 
-      cameraSocket.onopen = () => { statusEl.textContent = `Kameraya bağlanıldı (Oda: ${roomId()}).`; };
-      cameraSocket.onerror = () => { statusEl.textContent = 'Kamera bağlantısında hata oluştu.'; };
-
-      // Kamerayı SADECE İLK SEFERİNDE açıyoruz (getUserMedia). Oda değiştirince
-      // fiziksel kamera değişmiyor, sadece hangi odanın WebSocket'ine gönderdiğimiz
-      // değişiyor — bu yüzden tekrar getUserMedia() çağırmıyoruz. Eskiden her oda
-      // değişiminde YENİ bir akış açılıyor ama ESKİSİ hiç kapatılmıyordu; bu da
-      // arka arkaya biriken, serbest bırakılmamış kamera bağlantılarına (ve
-      // muhtemelen donmuş/siyah görüntüye) yol açabiliyordu.
-      if (localStream) {
-        startSendingFrames();
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({ video: true })
+      // Bu karta ÖZEL fiziksel kamerayı istiyoruz (deviceId ile, "exact").
+      navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
         .then(stream => {
-          localStream = stream;
-          localVideo.srcObject = stream;
-          startSendingFrames();
+          cam.stream = stream;
+          videoEl.srcObject = stream;
+
+          cam.sendInterval = setInterval(() => {
+            if (!cam.socket || cam.socket.readyState !== WebSocket.OPEN) return;
+            if (videoEl.videoWidth === 0) return;
+
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+              if (!blob) return;
+              blob.arrayBuffer().then(buf => cam.socket.send(buf));
+            }, 'image/jpeg', 0.7);
+          }, 200); // ~5 kare/saniye
         })
-        .catch(err => { statusEl.textContent = 'Kamera hatası: ' + err.message; });
+        .catch(err => { statusEl.textContent = `Kamera hatası (${roomId}): ${err.message}`; });
+
+      syncRecordingState(cam);
     }
 
-    function startSendingFrames() {
-      cameraSendInterval = setInterval(() => {
-        if (!cameraSocket || cameraSocket.readyState !== WebSocket.OPEN) return;
-        if (localVideo.videoWidth === 0) return; // henüz ilk kare gelmedi
-
-        captureCanvas.width = localVideo.videoWidth;
-        captureCanvas.height = localVideo.videoHeight;
-        captureCtx.drawImage(localVideo, 0, 0, captureCanvas.width, captureCanvas.height);
-        captureCanvas.toBlob(blob => {
-          if (!blob) return;
-          blob.arrayBuffer().then(buf => cameraSocket.send(buf));
-        }, 'image/jpeg', 0.7);
-      }, 200); // ~5 kare/saniye
-    }
-
-    // --- "Kime/hangi işleme ait" formu ---
-    // Hepsi opsiyonel; boş bırakılan alan isteğe hiç eklenmiyor (backend'de
-    // zaten hepsi nullable — boş string yerine gerçek null gitmesi DB'de
-    // daha temiz: "" yerine NULL, aramalarda/filtrelerde karışıklık yaratmaz).
-    // "roomName" burada YOK — artık yukarıdaki oda kimliğinden (route'tan)
-    // otomatik geliyor, sunucu tarafında client'tan gelen değeri zaten eziyor.
+    // --- "Kime/hangi işleme ait" formu --- TÜM kameralar için ortak.
     function readContextPayload() {
       const val = id => document.getElementById(id).value.trim() || null;
       return {
@@ -229,39 +289,10 @@
       };
     }
 
-    // --- Dropdown moduna göre buton metni/rengi ---
-    function onModeChange() {
-      if (isRecording) {
-        // Kayıt devam ederken modu değiştirmeye izin verme; kullanıcı önce durdurmalı.
-        modeSelect.value = 'video';
-        statusEl.textContent = 'Devam eden video kaydını durdurmadan mod değiştiremezsiniz.';
-        return;
-      }
-      updateButtonForMode();
-    }
-
-    function updateButtonForMode() {
-      if (modeSelect.value === 'photo') {
-        actionBtn.textContent = '📸 Kare Yakala & DB\'ye Kaydet';
-        actionBtn.classList.remove('recording');
-      } else {
-        actionBtn.textContent = '⏺ Video Kaydını Başlat';
-        actionBtn.classList.remove('recording');
-      }
-    }
-
-    function onActionClick() {
-      if (modeSelect.value === 'photo') {
-        takeSnapshot();
-      } else {
-        isRecording ? stopRecording() : startRecording();
-      }
-    }
-
-    async function takeSnapshot() {
-      statusEl.textContent = 'Kare yakalanıyor...';
+    async function takeSnapshot(cam) {
+      statusEl.textContent = `Kare yakalanıyor (${cam.roomId})...`;
       try {
-        const response = await fetch(`/api/rooms/${roomId()}/capture`, {
+        const response = await fetch(`/api/rooms/${cam.roomId}/capture`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
@@ -274,17 +305,17 @@
         }
 
         const data = await response.json();
-        statusEl.textContent = `Kaydedildi (Id: ${data.id}, dosya: ${data.filePath}).`;
+        statusEl.textContent = `Kaydedildi (${cam.roomId}, Id: ${data.id}, dosya: ${data.filePath}).`;
         loadCaptures();
       } catch (e) {
         statusEl.textContent = 'Bağlantı hatası: ' + e.message;
       }
     }
 
-    async function startRecording() {
-      statusEl.textContent = 'Video kaydı başlatılıyor...';
+    async function startRecording(cam) {
+      statusEl.textContent = `Video kaydı başlatılıyor (${cam.roomId})...`;
       try {
-        const response = await fetch(`/api/rooms/${roomId()}/capture/video/start`, {
+        const response = await fetch(`/api/rooms/${cam.roomId}/capture/video/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
@@ -297,18 +328,18 @@
         }
 
         const data = await response.json();
-        enterRecordingState(new Date(data.startedAt));
-        statusEl.textContent = `Kayıt başladı (Id: ${data.id}, dosya: ${data.filePath}).`;
+        enterRecordingState(cam, new Date(data.startedAt));
+        statusEl.textContent = `Kayıt başladı (${cam.roomId}, Id: ${data.id}).`;
         loadCaptures();
       } catch (e) {
         statusEl.textContent = 'Bağlantı hatası: ' + e.message;
       }
     }
 
-    async function stopRecording() {
-      statusEl.textContent = 'Video kaydı durduruluyor...';
+    async function stopRecording(cam) {
+      statusEl.textContent = `Video kaydı durduruluyor (${cam.roomId})...`;
       try {
-        const response = await fetch(`/api/rooms/${roomId()}/capture/video/stop`, { method: 'POST' });
+        const response = await fetch(`/api/rooms/${cam.roomId}/capture/video/stop`, { method: 'POST' });
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
@@ -317,12 +348,12 @@
         }
 
         const data = await response.json();
-        exitRecordingState();
+        exitRecordingState(cam);
         const seconds = data.durationMs ? Math.round(data.durationMs / 1000) : '?';
         if (data.verified === false) {
-          statusEl.textContent = `⚠ Kayıt durduruldu (Id: ${data.id}, süre: ${seconds}sn) ama dosya doğrulanamadı — bozuk olabilir.`;
+          statusEl.textContent = `⚠ Kayıt durduruldu (${cam.roomId}, Id: ${data.id}, süre: ${seconds}sn) ama dosya doğrulanamadı.`;
         } else {
-          statusEl.textContent = `Kayıt durduruldu (Id: ${data.id}, süre: ${seconds}sn).`;
+          statusEl.textContent = `Kayıt durduruldu (${cam.roomId}, Id: ${data.id}, süre: ${seconds}sn).`;
         }
         loadCaptures();
       } catch (e) {
@@ -330,55 +361,56 @@
       }
     }
 
-    function enterRecordingState(startedAt) {
-      isRecording = true;
-      recordingStartedAt = startedAt;
-      recIndicator.style.display = 'inline-flex';
-      actionBtn.textContent = '⏹ Video Kaydını Durdur';
-      actionBtn.classList.add('recording');
-      modeSelect.value = 'video';
-      modeSelect.disabled = true;
+    function enterRecordingState(cam, startedAt) {
+      cam.isRecording = true;
+      cam.recordingStartedAt = startedAt;
+      cam.recIndicator.style.display = 'inline-flex';
+      cam.actionBtn.textContent = '⏹ Video Kaydını Durdur';
+      cam.actionBtn.classList.add('recording');
+      cam.modeSelect.value = 'video';
+      cam.modeSelect.disabled = true;
 
-      clearInterval(timerInterval);
-      timerInterval = setInterval(updateTimer, 500);
-      updateTimer();
+      clearInterval(cam.timerInterval);
+      cam.timerInterval = setInterval(() => updateTimer(cam), 500);
+      updateTimer(cam);
     }
 
-    function exitRecordingState() {
-      isRecording = false;
-      recordingStartedAt = null;
-      recIndicator.style.display = 'none';
-      modeSelect.disabled = false;
-      clearInterval(timerInterval);
-      updateButtonForMode();
+    function exitRecordingState(cam) {
+      cam.isRecording = false;
+      cam.recordingStartedAt = null;
+      cam.recIndicator.style.display = 'none';
+      cam.modeSelect.disabled = false;
+      clearInterval(cam.timerInterval);
+      cam.actionBtn.textContent = "📸 Kare Yakala & DB'ye Kaydet";
+      cam.actionBtn.classList.remove('recording');
+      cam.modeSelect.value = 'photo';
     }
 
-    function updateTimer() {
-      if (!recordingStartedAt) return;
-      const elapsedSec = Math.floor((Date.now() - recordingStartedAt.getTime()) / 1000);
+    function updateTimer(cam) {
+      if (!cam.recordingStartedAt) return;
+      const elapsedSec = Math.floor((Date.now() - cam.recordingStartedAt.getTime()) / 1000);
       const mm = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
       const ss = String(elapsedSec % 60).padStart(2, '0');
-      recTimer.textContent = `${mm}:${ss}`;
+      cam.recTimer.textContent = `${mm}:${ss}`;
     }
 
-    // Sayfa (yeniden) açıldığında: sunucuda hâlâ devam eden bir kayıt var mı diye
-    // sor. Kayıt server-side olduğu için tarayıcı kapansa/yenilense bile devam
-    // ediyor olabilir; UI'ı gerçek duruma göre senkronlamak için bu şart.
-    async function syncRecordingState() {
+    // Sayfa (yeniden) açıldığında: sunucuda bu kamera için hâlâ devam eden bir
+    // kayıt var mı diye sor. Kayıt server-side olduğu için tarayıcı kapansa/
+    // yenilense bile devam ediyor olabilir.
+    async function syncRecordingState(cam) {
       try {
-        const res = await fetch(`/api/rooms/${roomId()}/capture/video/status`);
+        const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/status`);
         const data = await res.json();
         if (data.isRecording && data.capture) {
-          enterRecordingState(new Date(data.capture.capturedAt));
-          statusEl.textContent = `Sunucuda devam eden bir kayıt bulundu (Id: ${data.capture.id}), UI senkronlandı.`;
+          enterRecordingState(cam, new Date(data.capture.capturedAt));
+          statusEl.textContent = `Sunucuda devam eden bir kayıt bulundu (${cam.roomId}, Id: ${data.capture.id}).`;
         }
       } catch (e) {
         // Sessiz geç: durum senkronu opsiyonel bir iyileştirme.
       }
     }
 
-    // Byte'ı okunaklı birime çevirir (KB/MB) — Windows Özellikler penceresindeki
-    // "Size" alanının karşılığı, hem foto hem video için gösteriliyor.
+    // Byte'ı okunaklı birime çevirir (KB/MB).
     function formatFileSize(bytes) {
       if (bytes == null) return '';
       if (bytes < 1024) return `${bytes} B`;
@@ -399,8 +431,6 @@
         return '<span class="badge badge-photo">📷 Fotoğraf</span>';
       })();
 
-      // Çözünürlük ve dosya boyutu artık hem foto hem video için doluyor —
-      // ikisi de aynı MediaCapture.Width/Height/FileSizeBytes alanlarını paylaşıyor.
       const bits = [];
       if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
       if (item.fileSizeBytes != null) bits.push(formatFileSize(item.fileSizeBytes));
@@ -420,9 +450,6 @@
       return '—';
     }
 
-    // Gerçek kare sayısından hesaplanan ortalama fps — deklare edilen sabit
-    // 20fps'ten sapabiliyor, bu satır o farkı görünür kılıyor. Çözünürlük
-    // artık typeBadge'de gösteriliyor (foto+video ortak), burada tekrar etmiyoruz.
     function techInfoLine(item) {
       const bits = [];
       if (item.frameCount != null && item.durationMs) {
@@ -453,19 +480,16 @@
         if (item.status === 'recording') {
           return '<span style="color:#cc0000">⏳ kayıt sürüyor…</span>';
         }
-        // interrupted/corrupted durumlarda da dosyayı açmayı deniyoruz —
-        // bazen kısmen oynatılabilir kalıyor; rozet zaten dikkatli olunması
-        // gerektiğini gösteriyor.
         return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
       }
       return `<img src="${item.filePath}" class="thumb" />`;
     }
 
     async function loadCaptures() {
-      // Sadece BU odanın kayıtlarını çekiyoruz — başka odanın/hastanın
-      // kaydını bu ekrandan görmemek için (bkz. admin.html: o, roomId
-      // vermeden çağırıp TÜM odaları görür).
-      const res = await fetch(`/api/captures?roomId=${encodeURIComponent(roomId())}`);
+      // Taban oda kimliğiyle sorguluyoruz — sunucu (GetCaptures) bu odanın
+      // TÜM alt-kameralarının ("oda1-cam1", "oda1-cam2" vb.) kayıtlarını da
+      // otomatik olarak birlikte döndürüyor, ayrıca tek tek sormamıza gerek yok.
+      const res = await fetch(`/api/captures?roomId=${encodeURIComponent(baseRoomId())}`);
       const data = await res.json();
       const tbody = document.getElementById('captures-table');
       tbody.innerHTML = '';
@@ -476,7 +500,6 @@
       }
 
       data.forEach(item => {
-        // Kayıt sürerken silmeye/yenilemeye izin vermiyoruz — dosya henüz kapanmadı.
         const isRecordingRow = item.status === 'recording';
         const deleteBtn = isRecordingRow
           ? ''
@@ -501,10 +524,6 @@
       });
     }
 
-    // Dosyayı YENİDEN OKUYUP (Windows Özellikler'le hiç ilgisi yok, doğrudan
-    // dosyanın kendisi) Width/Height/FrameCount/FileSizeBytes'ı tazeler.
-    // Bu alanlar eklenmeden önce kaydedilmiş eski satırları doldurmak
-    // (backfill) ya da şüpheli görünen bir değeri yeniden ölçmek için.
     async function refreshMetadata(id) {
       statusEl.textContent = `Id=${id} için dosya bilgileri yeniden okunuyor...`;
       try {
@@ -523,8 +542,6 @@
       }
     }
 
-    // Soft-delete: dosya ve DB satırı silinmiyor, sadece listeden gizleniyor
-    // (bkz. IsActive alanı). Tıbbi kayıt olduğu için kalıcı silme yok.
     async function deleteCapture(id) {
       if (!confirm(`Id=${id} olan kaydı listeden kaldırmak istediğinize emin misiniz? (Dosya silinmez, sadece listeden gizlenir.)`)) {
         return;
@@ -545,9 +562,7 @@
       }
     }
 
-    connectCamera();
-    updateButtonForMode();
-    syncRecordingState();
+    setupCameras();
     loadCaptures();
   </script>
 </body>
