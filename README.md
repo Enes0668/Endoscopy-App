@@ -12,6 +12,12 @@ kaydeden, PostgreSQL veritabanına yazan bir ASP.NET Core uygulaması.
 - Sunucu, her oda için ayrı ve birbirinden izole bir `CameraSession` tutar
   (`Services/CameraSession.cs`) — bir odanın kaydı/görüntüsü başka bir odayı
   hiç etkilemez.
+- **Özel odalarda birden fazla kamera desteklenir** (tek bilgisayara bağlı 2+
+  fiziksel kamera, örn. ana kamera + yardımcı kamera). Sayfa açılışında
+  `enumerateDevices()` ile bulunan her kamera kendi alt-oda kimliğini alır
+  (`oda1-cam1`, `oda1-cam2` gibi) ve tamamen bağımsız çalışır — biri kayıt
+  yaparken diğeri fotoğraf çekebilir. Tek kameralı normal odalarda davranış
+  değişmez (düz `oda1`).
 - Fotoğraf/video kayıtları `MediaCaptures` tablosuna (PostgreSQL, EF Core ile)
   yazılır; hangi odadan geldiği `RoomName` alanıyla ayırt edilir.
 - Kimlik doğrulama (login) **yok** — oda ekranı, kendi oda kimliğini serbestçe
@@ -58,9 +64,10 @@ kaydeden, PostgreSQL veritabanına yazan bir ASP.NET Core uygulaması.
 
 | Adres | Ne işe yarar |
 |---|---|
-| `/` (`index.html`) | Bir odanın ana ekranı — kamerayı açar, WebSocket ile gönderir, fotoğraf/video çeker, **sadece kendi odasının** kayıtlarını listeler. Üstteki "oda kimliği" kutusuna hangi odaysan onu yaz. |
+| `/` (`index.html`) | Bir odanın ana ekranı — sayfa açılışında o bilgisayardaki **tüm kameraları otomatik bulur** (dahili webcam, ikinci bir USB kamera, OBS sanal kamera vb.), her biri için ayrı bir kart (canlı önizleme + foto/video kontrolü) açar, WebSocket ile gönderir, **sadece kendi odasının** (ve varsa alt-kameralarının) kayıtlarını listeler. Üstteki "oda kimliği" kutusuna hangi odaysan onu yaz. |
 | `/admin.html` | **Tüm odaların** kayıtlarını (filtresiz, ya da istersen tek bir odaya daraltarak) gösteren yönetici görünümü. Kamera/kayıt kontrolü yok, sadece listeleme. |
-| `/camera-ws-test.html` | Bağımsız bir test sayfası — sadece WebSocket/kamera akışını (fotoğraf/video API çağrılarıyla birlikte) izole test etmek için, ana akışın parçası değil. |
+| `/camera-ws-test.html` | Bağımsız bir test sayfası — sadece WebSocket/kamera akışını (tek kamera, fotoğraf/video API çağrılarıyla birlikte) izole test etmek için, ana akışın parçası değil. |
+| `/multi-camera-test.html` | Çoklu kamera senaryosunu (tek bilgisayara bağlı birden fazla kamera, manuel seçim ile) izole test etmek için ayrı bir sayfa. `index.html`'deki otomatik-bulma mantığının, elle seçim yapılabilen deneysel hali. |
 
 ## Farklı bir bilgisayardan/telefondan erişme
 
@@ -95,7 +102,7 @@ Oda bazlı (hepsi `{roomId}` alır, örn. `oda1`):
 - `GET /api/rooms/{roomId}/video-feed` — canlı MJPEG önizleme
 
 Oda'dan bağımsız:
-- `GET /api/captures?roomId=...` — kayıt listesi (roomId verilmezse tüm odalar)
+- `GET /api/captures?roomId=...` — kayıt listesi (roomId verilmezse tüm odalar; roomId verilirse o oda İLE ONUN `-cam1`, `-cam2` gibi alt-kameralarının kayıtları birlikte döner)
 - `DELETE /api/captures/{id}` — soft-delete
 - `POST /api/captures/{id}/refresh-metadata` — dosyadan metadata'yı tazele
 
