@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Çoklu Kamera Testi</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f4f6f8;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            max-width: 700px;
+        }
+
+        .setup {
+            margin-bottom: 16px;
+        }
+
+        .setup input {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-right: 8px;
+            margin-bottom: 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #0066cc;
+            color: white;
+        }
+
+        button:hover { background: #0052a3; }
+        button.danger { background: #cc0000; }
+        button.danger:hover { background: #a30000; }
+        button.small { padding: 5px 10px; font-size: 12px; }
+
+        #device-list {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+            max-width: 500px;
+        }
+
+        #device-list label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .cameras {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .camera-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            width: 340px;
+        }
+
+        .camera-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+
+        .camera-card video {
+            width: 100%;
+            background: #000;
+            border: 1px solid #999;
+        }
+
+        .camera-log {
+            margin-top: 8px;
+            border: 1px solid #eee;
+            padding: 6px;
+            max-height: 140px;
+            overflow-y: auto;
+            font-size: 11px;
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        ⚠️ Deneysel test sayfası — <strong>tek bir tarayıcı sekmesinden, birden fazla kamerayı aynı anda</strong>
+        seçip her birinden bağımsız akış/kayıt almayı test etmek için (Furkan abi'nin OBS sanal kamera + dahili
+        webcam senaryosu). Her seçilen kamera, sunucuda ayrı bir "oda" (<code>&lt;taban-oda&gt;-camN</code>) gibi
+        davranır — sunucu tarafında hiçbir değişiklik gerekmedi, sadece bu sayfa yeni.
+    </div>
+
+    <h2>Çoklu Kamera Testi</h2>
+
+    <div class="setup">
+        Taban oda kimliği: <input type="text" id="baseRoomIdInput" value="oda1" />
+        <button onclick="listCameras()">🔍 Kameraları Bul</button>
+    </div>
+
+    <div id="device-list"></div>
+
+    <button onclick="startSelected()">▶ Seçilen Kameralarla Başlat</button>
+
+    <div class="cameras" id="cameras"></div>
+
+    <script>
+        const baseRoomIdInput = document.getElementById('baseRoomIdInput');
+        const deviceListEl = document.getElementById('device-list');
+        const camerasEl = document.getElementById('cameras');
+
+        function baseRoomId() {
+            return baseRoomIdInput.value.trim() || 'oda1';
+        }
+
+        // Aktif kameraları tutan liste — her biri kendi stream/socket/interval'ini taşır.
+        const activeCameras = [];
+
+        // 1. Adım: mevcut kamera cihazlarını listele. Tarayıcı, kamera izni
+        // verilmeden cihaz İSİMLERİNİ (label) göstermez (gizlilik önlemi) —
+        // bu yüzden önce kısa bir getUserMedia isteğiyle izni "açtırıyoruz",
+        // sonra gerçek listeyi (isimleriyle) alıyoruz.
+        async function listCameras() {
+            deviceListEl.innerHTML = 'Taranıyor...';
+            try {
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                tempStream.getTracks().forEach(t => t.stop()); // sadece izin için açtık, hemen kapat
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
+
+                if (cameras.length === 0) {
+                    deviceListEl.innerHTML = 'Hiç kamera bulunamadı.';
+                    return;
+                }
+
+                deviceListEl.innerHTML = cameras.map((cam, i) => `
+                    <label>
+                        <input type="checkbox" class="camera-checkbox" value="${cam.deviceId}" data-label="${cam.label || 'Kamera ' + (i + 1)}" />
+                        ${cam.label || 'Kamera ' + (i + 1)}
+                    </label>
+                `).join('');
+            } catch (err) {
+                deviceListEl.innerHTML = `❌ Kamera listesi alınamadı: ${err.message}`;
+            }
+        }
+
+        // 2. Adım: işaretlenen her kamera için BAĞIMSIZ bir akış kur — kendi
+        // getUserMedia'sı (bu kez SPESİFİK deviceId ile), kendi WebSocket
+        // bağlantısı (kendi oda kimliğiyle), kendi gönderim döngüsü.
+        function startSelected() {
+            const checked = Array.from(document.querySelectorAll('.camera-checkbox:checked'));
+            if (checked.length === 0) {
+                alert('En az bir kamera seç.');
+                return;
+            }
+
+            camerasEl.innerHTML = '';
+            activeCameras.forEach(c => { c.socket?.close(); clearInterval(c.sendInterval); });
+            activeCameras.length = 0;
+
+            checked.forEach((checkbox, index) => {
+                setupCamera(checkbox.value, checkbox.dataset.label, index);
+            });
+        }
+
+        function setupCamera(deviceId, label, index) {
+            const roomId = `${baseRoomId()}-cam${index + 1}`;
+
+            const card = document.createElement('div');
+            card.className = 'camera-card';
+            card.innerHTML = `
+                <h4>${label} → Oda: <code>${roomId}</code></h4>
+                <video autoplay playsinline muted></video>
+                <div>
+                    <button class="small" onclick="cameraAction(${index}, 'capture')">📷 Fotoğraf</button>
+                    <button class="small" onclick="cameraAction(${index}, 'start')">⏺ Başlat</button>
+                    <button class="small danger" onclick="cameraAction(${index}, 'stop')">⏹ Durdur</button>
+                </div>
+                <div class="camera-log"></div>
+            `;
+            camerasEl.appendChild(card);
+
+            const videoEl = card.querySelector('video');
+            const logEl = card.querySelector('.camera-log');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const camState = { roomId, socket: null, sendInterval: null, frameCount: 0, logEl };
+            activeCameras[index] = camState;
+
+            function log(msg) {
+                const p = document.createElement('p');
+                p.textContent = msg;
+                logEl.appendChild(p);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            camState.socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId}`);
+            camState.socket.binaryType = 'arraybuffer';
+            camState.socket.onopen = () => log(`🟢 Bağlanıldı: ${roomId}`);
+            camState.socket.onerror = () => log('⚠️ WebSocket hatası.');
+
+            // Bu kameraya ÖZEL cihazı istiyoruz — "exact" ile tarayıcıya "başka
+            // kamera değil, TAM OLARAK bu deviceId'yi ver" diyoruz.
+            navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
+                .then(stream => {
+                    videoEl.srcObject = stream;
+                    log('🎥 Kameraya erişildi.');
+
+                    camState.sendInterval = setInterval(() => {
+                        if (camState.socket.readyState !== WebSocket.OPEN) return;
+                        if (videoEl.videoWidth === 0) return;
+
+                        canvas.width = videoEl.videoWidth;
+                        canvas.height = videoEl.videoHeight;
+                        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(blob => {
+                            if (!blob) return;
+                            blob.arrayBuffer().then(buf => {
+                                camState.socket.send(buf);
+                                camState.frameCount++;
+                                if (camState.frameCount % 25 === 1) {
+                                    log(`📤 Kare #${camState.frameCount}`);
+                                }
+                            });
+                        }, 'image/jpeg', 0.7);
+                    }, 200); // ~5 kare/saniye
+                })
+                .catch(err => log(`❌ Kamera hatası: ${err.message}`));
+        }
+
+        async function cameraAction(index, action) {
+            const cam = activeCameras[index];
+            if (!cam) return;
+
+            const map = {
+                capture: { path: '/capture', method: 'POST' },
+                start: { path: '/capture/video/start', method: 'POST' },
+                stop: { path: '/capture/video/stop', method: 'POST' }
+            };
+            const { path, method } = map[action];
+
+            try {
+                const res = await fetch(`/api/rooms/${cam.roomId}${path}`, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: method === 'POST' ? JSON.stringify({ triggerSource: 'WEB_BUTTON' }) : undefined
+                });
+                const body = await res.json().catch(() => ({}));
+                const p = document.createElement('p');
+                p.textContent = `${method} ${path} -> HTTP ${res.status}: ${JSON.stringify(body)}`;
+                cam.logEl.appendChild(p);
+                cam.logEl.scrollTop = cam.logEl.scrollHeight;
+            } catch (err) {
+                const p = document.createElement('p');
+                p.textContent = `❌ İstek hatası: ${err.message}`;
+                cam.logEl.appendChild(p);
+            }
+        }
+    </script>
+</body>
+</html>
