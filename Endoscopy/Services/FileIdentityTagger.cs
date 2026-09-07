@@ -11,9 +11,8 @@ namespace Endoscopy.Services;
 /// tag'ler dosyanın kendi kendini kanıtlamasını (self-contained provenance)
 /// sağlar.
 ///
-/// Genel amaçlı alanlara (Comment/Description) YAZMIYORUZ — Furkan'ın
-/// belirttiği gibi ("IsDeleted'ı oraya koymazsın, yeri orası değil") her
-/// bilginin ait olduğu yer var:
+/// Genel amaçlı alanlara (Comment/Description) YAZMIYORUZ — her bilginin
+/// ait olduğu yer farklıdır ("IsDeleted" gibi uygulama alanları buraya girmez):
 ///   - JPEG: standart tag'ler yerine kendi custom XMP namespace'imiz.
 ///   - MP4: standart bir atom yok; TagLibSharp'ın freeform ("----" / dash box)
 ///     mekanizmasıyla, kendi "mean" tanımlayıcımız altında custom atomlar.

@@ -20,9 +20,9 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 });
 
 // Çoklu oda/kamera desteği: eski CameraService (tek fiziksel kamera, sunucunun
-// kendi VideoCapture(0)'ı) kaldırıldı — Furkan abi'nin yönüne göre artık her
-// odanın kamerası kendi tarayıcısından WebSocket ile buraya akıtılıyor (bkz.
-// aşağıdaki /ws-camera/{roomId} endpoint'i ve Services/CameraSession.cs).
+// kendi VideoCapture(0)'ı) kaldırıldı — artık her odanın kamerası kendi
+// tarayıcısından WebSocket ile buraya akıtılıyor (bkz. /ws-camera/{roomId}
+// endpoint'i ve Services/CameraSession.cs).
 // CameraSessionManager, her oda için ayrı bir CameraSession tutan singleton
 // kayıt defteri. CodecDetector de tüm odaların PAYLAŞTIĞI, bu makine için bir
 // kere hesaplanan codec tespitini tutan singleton (bkz. Services/CodecDetector.cs).
