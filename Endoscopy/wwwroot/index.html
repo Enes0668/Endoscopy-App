@@ -3,149 +3,617 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Endoskopi Web Prototipi — Kamera & Veritabanı Testi</title>
+  <title>EndoCapture — Endoskopi Kayıt Sistemi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Segoe UI, sans-serif; margin: 24px; background: #f4f6f8; color: #1a1a1a; }
-    h2 { margin-bottom: 4px; }
-    .subtitle { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
-    .container { display: flex; gap: 20px; flex-wrap: wrap; }
-    .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-    .cameras-grid { display: flex; gap: 16px; flex-wrap: wrap; }
-    .camera-card { width: 420px; }
-    .video-box { width: 420px; height: 315px; background: #111; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .video-box img, .video-box video { width: 100%; height: 100%; object-fit: cover; }
-    .camera-title { font-size: 12px; color: #666; margin-bottom: 4px; }
-    button { padding: 10px 18px; font-size: 15px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 12px; margin-right: 8px; }
-    button:hover { background: #0052a3; }
-    button.secondary { background: #28a745; }
-    button.secondary:hover { background: #1e7e34; }
-    button.recording { background: #cc0000; }
-    button.recording:hover { background: #a30000; }
-    select { padding: 9px 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; margin-top: 12px; }
-    .context-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; max-width: 480px; }
-    .context-form input { padding: 8px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
-    .context-form label { font-size: 11px; color: #666; display: block; margin-bottom: 2px; }
-    .context-note { font-size: 11px; color: #999; margin-top: 4px; max-width: 480px; }
-    .rec-indicator { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 13px; color: #cc0000; font-weight: 600; }
-    .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #cc0000; animation: blink 1s infinite; }
-    @keyframes blink { 50% { opacity: 0.2; } }
-    .video-thumb { width: 120px; height: 60px; object-fit: cover; border-radius: 4px; background: #000; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-    .badge-photo { background: #e7f1ff; color: #0066cc; }
-    .badge-video { background: #ffe9e9; color: #cc0000; }
-    .badge-recording { background: #fff3cd; color: #997404; }
-    .badge-interrupted { background: #ffe5cc; color: #a35400; }
-    .badge-corrupted { background: #2b2b2b; color: #ff6b6b; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
-    th { background: #f0f2f5; }
-    .thumb { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; }
-    .status { margin-top: 10px; font-size: 13px; color: #444; min-height: 18px; }
-    .right-panel { flex: 1; min-width: 400px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --surface2:  #263148;
+      --border:    #334155;
+      --text:      #f1f5f9;
+      --muted:     #94a3b8;
+      --primary:   #3b82f6;
+      --primary-h: #2563eb;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+      --orange:    #f97316;
+      --radius:    12px;
+      --radius-sm: 8px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 24px;
+      height: 60px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+    }
+    .logo span { color: var(--primary); }
+
+    .header-divider { width: 1px; height: 28px; background: var(--border); }
+
+    .room-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .room-label {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .room-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      padding: 7px 12px;
+      outline: none;
+      width: 120px;
+      transition: border-color .15s;
+    }
+    .room-input:focus { border-color: var(--primary); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, transform .08s;
+    }
+    .btn:active { transform: scale(.97); }
+
+    .btn-primary   { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-h); }
+
+    .btn-ghost  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: #475569; }
+
+    .btn-green   { background: var(--green); color: #fff; }
+    .btn-green:hover { background: #16a34a; }
+
+    .btn-red     { background: var(--red); color: #fff; }
+    .btn-red:hover { background: #dc2626; }
+
+    .btn-amber   { background: var(--amber); color: #000; }
+    .btn-amber:hover { background: #d97706; }
+
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    .header-status {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .main {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 0 0 auto;
+      min-width: 0;
+    }
+
+    .right-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── CARD ───────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .card-body { padding: 16px; }
+
+    /* ── CAMERAS GRID ───────────────────────────────────── */
+    .cameras-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* ── CAMERA CARD ────────────────────────────────────── */
+    .camera-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      width: 400px;
+      flex-shrink: 0;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+    }
+
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 10px;
+      pointer-events: none;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0,0,0,.6);
+      border: 1px solid rgba(34,197,94,.4);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--green);
+      backdrop-filter: blur(4px);
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-green 1.5s infinite;
+    }
+
+    .rec-badge {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0,0,0,.6);
+      border: 1px solid rgba(239,68,68,.5);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--red);
+      backdrop-filter: blur(4px);
+    }
+    .rec-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: blink 1s infinite;
+    }
+    .rec-timer { font-variant-numeric: tabular-nums; }
+
+    .video-no-signal {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .video-no-signal svg { opacity: .3; }
+
+    .cam-info {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cam-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cam-room {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .cam-controls {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mode-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .mode-toggle input[type="radio"] { display: none; }
+    .mode-toggle input[type="radio"]:checked + label {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .action-btn {
+      flex: 1;
+      text-align: center;
+      justify-content: center;
+    }
+
+    /* ── PATIENT INFO FORM ──────────────────────────────── */
+    .patient-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      padding: 8px 11px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input::placeholder { color: #475569; }
+    .field input:focus { border-color: var(--primary); }
+
+    .field-hint {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: #475569;
+      padding-top: 2px;
+    }
+
+    /* ── RECORDS TABLE ──────────────────────────────────── */
+    .records-card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .table-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    tbody td {
+      padding: 10px 14px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .thumb {
+      width: 72px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #000;
+      display: block;
+    }
+    .video-thumb {
+      width: 72px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #000;
+    }
+
+    /* ── BADGES ─────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-photo      { background: rgba(59,130,246,.15); color: #60a5fa; border: 1px solid rgba(59,130,246,.2); }
+    .badge-video      { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+    .badge-recording  { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+    .badge-interrupted{ background: rgba(249,115,22,.12); color: #fb923c; border: 1px solid rgba(249,115,22,.2); }
+    .badge-corrupted  { background: rgba(100,116,139,.15);color: #94a3b8; border: 1px solid rgba(100,116,139,.2); }
+
+    .context-primary { font-weight: 600; color: var(--text); }
+    .context-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .actions-cell { display: flex; gap: 6px; align-items: center; }
+
+    /* ── EMPTY STATE ────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state svg { opacity: .3; }
+
+    /* ── ANIMATIONS ─────────────────────────────────────── */
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes pulse-green {
+      0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+      50% { box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+    }
+
+    /* ── CANVAS hidden ──────────────────────────────────── */
+    canvas { display: none; }
+
+    /* ── SCROLLBAR ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
   </style>
 </head>
 <body>
-  <h2>Endoskopi Web Prototipi</h2>
-  <p class="subtitle">Tarayıcı kamerası(ları) → WebSocket → Backend (ASP.NET Core / OpenCvSharp) → PostgreSQL veritabanı</p>
 
-  <div class="container">
-    <!-- Canlı Kamera Paneli -->
-    <div class="panel">
-      <h3>Canlı Kamera Yayını</h3>
+  <!-- ── HEADER ──────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">Endo<span>Capture</span></div>
+    <div class="header-divider"></div>
 
-      <!-- Oda kimliği: bu bilgisayarda kaç fiziksel kamera varsa (dahili webcam,
-           ikinci bir USB kamera, OBS sanal kamera vb.) hepsi otomatik bulunup
-           bağlanır. Özel odalarda (2 kamera tek cihaza bağlı) her kamera kendi
-           alt-oda kimliğini alır (oda1-cam1, oda1-cam2 gibi); tek kameralı
-           normal odalarda eskisi gibi tek bir "oda1" kullanılır - davranış
-           değişmiyor. Bkz. Services/CameraSession.cs (her kamera kendi izole
-           oturumu) ve CaptureDbService.GetCaptures (alt-kameraları da oda
-           tablosunda birlikte gösterme mantığı). -->
-      <div style="margin-bottom: 10px;">
-        <label for="room-id-input" style="font-size: 13px; color: #666;">Bu istasyonun oda kimliği:</label><br>
-        <input id="room-id-input" type="text" value="oda1" style="padding: 6px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;" onchange="onRoomIdChange()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); onRoomIdChange(); this.blur(); }" />
-        <button onclick="onRoomIdChange()" style="padding: 6px 12px; font-size: 13px; margin: 0 0 0 4px;">✓ Onayla</button>
-        <button onclick="setupCameras()" style="padding: 6px 12px; font-size: 13px; background: #555;">🔄 Kameraları Yenile</button>
-      </div>
+    <div class="room-row">
+      <span class="room-label">Oda:</span>
+      <input
+        id="room-id-input"
+        class="room-input"
+        type="text"
+        value="oda1"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();onRoomIdChange();this.blur();}"
+      />
+      <button class="btn btn-primary" onclick="onRoomIdChange()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Bağlan
+      </button>
+      <button class="btn btn-ghost" onclick="setupCameras()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Yenile
+      </button>
+    </div>
 
+    <span class="header-status" id="status">Başlatılıyor…</span>
+  </header>
+
+  <!-- ── MAIN ────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Left: Cameras + Patient Info -->
+    <div class="left-col">
+
+      <!-- Camera cards injected here -->
       <div class="cameras-grid" id="cameras-grid"></div>
 
-      <!-- Bu kaydın kime/hangi işleme ait olduğu — hepsi opsiyonel, boş -->
-      <!-- bırakılabilir, TÜM kameralar için ORTAK (aynı oda/prosedür). -->
-      <div class="context-form">
-        <div>
-          <label for="ctx-patient-id">Hasta No (MRN)</label>
-          <input id="ctx-patient-id" type="text" placeholder="örn. 10293847" />
+      <!-- Patient Info -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Hasta Bilgileri
+          </span>
         </div>
-        <div>
-          <label for="ctx-patient-name">Hasta Adı</label>
-          <input id="ctx-patient-name" type="text" placeholder="örn. Ahmet Yılmaz" />
-        </div>
-        <div>
-          <label for="ctx-doctor-name">Doktor</label>
-          <input id="ctx-doctor-name" type="text" placeholder="örn. Dr. Ayşe Kaya" />
-        </div>
-        <div>
-          <label for="ctx-procedure-type">Prosedür Türü</label>
-          <input id="ctx-procedure-type" type="text" placeholder="örn. Kolonoskopi" />
-        </div>
-        <div>
-          <label for="ctx-created-by">Oluşturan</label>
-          <input id="ctx-created-by" type="text" placeholder="örn. Hemşire Zeynep" />
+        <div class="card-body">
+          <div class="patient-form">
+            <div class="field">
+              <label for="ctx-patient-id">Hasta No (MRN)</label>
+              <input id="ctx-patient-id" type="text" placeholder="örn. 10293847" />
+            </div>
+            <div class="field">
+              <label for="ctx-patient-name">Hasta Adı</label>
+              <input id="ctx-patient-name" type="text" placeholder="örn. Ahmet Yılmaz" />
+            </div>
+            <div class="field">
+              <label for="ctx-doctor-name">Doktor</label>
+              <input id="ctx-doctor-name" type="text" placeholder="örn. Dr. Ayşe Kaya" />
+            </div>
+            <div class="field">
+              <label for="ctx-procedure-type">Prosedür Türü</label>
+              <input id="ctx-procedure-type" type="text" placeholder="örn. Kolonoskopi" />
+            </div>
+            <div class="field">
+              <label for="ctx-created-by">Oluşturan</label>
+              <input id="ctx-created-by" type="text" placeholder="örn. Hemşire Zeynep" />
+            </div>
+            <p class="field-hint">Tüm alanlar isteğe bağlıdır. Birden fazla kamera varsa hepsine aynı bilgi yazılır.</p>
+          </div>
         </div>
       </div>
-      <div class="context-note">Bu bilgiler isteğe bağlıdır; boş bırakılırsa kayıt yine de yapılır, ama listede kime ait olduğu görünmez. Birden fazla kamera varsa, hepsinin kaydına aynı hasta/prosedür bilgisi yazılır.</div>
 
-      <div class="status" id="status"></div>
     </div>
 
-    <!-- Veritabanı Kayıtları -->
-    <div class="panel right-panel">
-      <h3>Veritabanındaki Kayıtlar</h3>
-      <button class="secondary" onclick="loadCaptures()">🔄 Listeyi Yenile</button>
-      <table>
-        <thead>
-          <tr>
-            <th>Önizleme</th>
-            <th>ID</th>
-            <th>Tür</th>
-            <th>Hasta / Doktor / Prosedür</th>
-            <th>Tetikleyici</th>
-            <th>Zaman (UTC)</th>
-            <th>Süre / Durum</th>
-            <th>İşlem</th>
-          </tr>
-        </thead>
-        <tbody id="captures-table"></tbody>
-      </table>
+    <!-- Right: Records -->
+    <div class="right-col">
+      <div class="card records-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 3H8"/><path d="M12 3v4"/></svg>
+            Kayıtlar
+          </span>
+          <button class="btn btn-ghost btn-sm" onclick="loadCaptures()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            Yenile
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Önizleme</th>
+                <th>ID</th>
+                <th>Tür</th>
+                <th>Hasta / Doktor / Prosedür</th>
+                <th>Süre / Durum</th>
+                <th>Zaman</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="captures-table"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
+
   </div>
 
   <script>
-    const statusEl = document.getElementById('status');
+    const statusEl    = document.getElementById('status');
     const roomIdInput = document.getElementById('room-id-input');
     const camerasGrid = document.getElementById('cameras-grid');
 
-    function baseRoomId() {
-      return roomIdInput.value.trim() || 'oda1';
+    function baseRoomId() { return roomIdInput.value.trim() || 'oda1'; }
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.style.color = isError ? '#f87171' : '';
     }
 
     function onRoomIdChange() {
-      statusEl.textContent = `Oda kimliği "${baseRoomId()}" olarak değiştirildi, kameralar yeniden bağlanıyor...`;
+      setStatus(`"${baseRoomId()}" odasına bağlanılıyor…`);
       setupCameras();
       loadCaptures();
     }
 
-    // --- Çoklu kamera desteği ---
-    // Her tespit edilen kamera için, activeCameras dizisinde bağımsız bir
-    // "durum nesnesi" tutuyoruz (kendi socket'i, kendi kayıt durumu, kendi DOM
-    // elemanları). Bu, sunucudaki CameraSession izolasyonunun (bkz. bugünkü
-    // thread-safety konuşması) tarayıcı tarafındaki karşılığı: bir kameranın
-    // durumu, başka bir kameranınkiyle hiç karışmıyor.
+    // ── Multi-camera ──────────────────────────────────────
     let activeCameras = [];
+    let setupToken = 0;
 
     async function setupCameras() {
-      // Önceki kameraları temizle (varsa) — bağlantıları kapat, akışları durdur.
+      const myToken = ++setupToken;
+
       activeCameras.forEach(cam => {
         cam.socket?.close();
         clearInterval(cam.sendInterval);
@@ -156,220 +624,212 @@
       camerasGrid.innerHTML = '';
 
       try {
-        // Cihaz isimlerini görebilmek için önce izin almamız lazım (gizlilik
-        // önlemi: izin verilmeden enumerateDevices boş/isimsiz döner).
         const permStream = await navigator.mediaDevices.getUserMedia({ video: true });
         permStream.getTracks().forEach(t => t.stop());
+        if (myToken !== setupToken) return;
 
         const devices = await navigator.mediaDevices.enumerateDevices();
+        if (myToken !== setupToken) return;
+
         const cams = devices.filter(d => d.kind === 'videoinput');
+        if (cams.length === 0) { setStatus('Hiç kamera bulunamadı.', true); return; }
 
-        if (cams.length === 0) {
-          statusEl.textContent = 'Hiç kamera bulunamadı.';
-          return;
-        }
-
-        statusEl.textContent = `${cams.length} kamera bulundu, bağlanılıyor...`;
+        setStatus(`${cams.length} kamera bulundu, bağlanılıyor…`);
         cams.forEach((cam, index) => setupOneCamera(cam.deviceId, cam.label, index, cams.length));
       } catch (err) {
-        statusEl.textContent = 'Kamera hatası: ' + err.message;
+        if (myToken !== setupToken) return;
+        setStatus('Kamera hatası: ' + err.message, true);
       }
     }
 
     function setupOneCamera(deviceId, label, index, total) {
-      // Tek kameralı (normal) bir odada eskisi gibi düz oda kimliği kullanılır
-      // (geriye dönük uyumluluk). Birden fazla kamera varsa (özel odalar),
-      // her biri kendi alt-oda kimliğini alır.
-      const roomId = total <= 1 ? baseRoomId() : `${baseRoomId()}-cam${index + 1}`;
+      const roomId = total > 1
+        ? `${baseRoomId()}-cam${index + 1}`
+        : baseRoomId();
 
+      // ── Build card DOM ──────────────────────────────────
       const card = document.createElement('div');
       card.className = 'camera-card';
       card.innerHTML = `
-        <div class="camera-title">${label || ('Kamera ' + (index + 1))} ${total > 1 ? `→ Oda: <code>${roomId}</code>` : ''}</div>
-        <div class="video-box"><video autoplay playsinline muted></video></div>
-        <canvas style="display:none"></canvas>
-        <div>
-          <select class="mode-select">
-            <option value="photo">📷 Fotoğraf</option>
-            <option value="video">🎥 Video</option>
-          </select>
-          <button class="action-btn">📸 Kare Yakala &amp; DB'ye Kaydet</button>
-          <span class="rec-indicator" style="display:none;">
-            <span class="rec-dot"></span> Kayıtta — <span class="rec-timer">00:00</span>
-          </span>
+        <div class="video-container">
+          <video autoplay playsinline muted></video>
+          <canvas></canvas>
+          <div class="video-overlay">
+            <span class="live-badge"><span class="live-dot"></span> CANLI</span>
+            <span class="rec-badge">
+              <span class="rec-dot"></span>
+              REC <span class="rec-timer">00:00</span>
+            </span>
+          </div>
+        </div>
+        <div class="cam-info">
+          <div class="cam-name">${label || `Kamera ${index + 1}`}</div>
+          <div class="cam-room">Oda: ${roomId}</div>
+        </div>
+        <div class="cam-controls">
+          <div class="mode-toggle">
+            <input type="radio" name="mode-${index}" id="mode-photo-${index}" value="photo" checked>
+            <label for="mode-photo-${index}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              Fotoğraf
+            </label>
+            <input type="radio" name="mode-${index}" id="mode-video-${index}" value="video">
+            <label for="mode-video-${index}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              Video
+            </label>
+          </div>
+          <button class="btn btn-green action-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            Yakala
+          </button>
         </div>
       `;
       camerasGrid.appendChild(card);
 
-      const videoEl = card.querySelector('video');
-      const canvas = card.querySelector('canvas');
-      const ctx = canvas.getContext('2d');
-      const modeSelect = card.querySelector('.mode-select');
-      const actionBtn = card.querySelector('.action-btn');
-      const recIndicator = card.querySelector('.rec-indicator');
-      const recTimer = card.querySelector('.rec-timer');
+      const videoEl     = card.querySelector('video');
+      const canvas      = card.querySelector('canvas');
+      const ctx         = canvas.getContext('2d');
+      const recBadge    = card.querySelector('.rec-badge');
+      const recTimer    = card.querySelector('.rec-timer');
+      const actionBtn   = card.querySelector('.action-btn');
+      const modeInputs  = card.querySelectorAll('input[type="radio"]');
 
       const cam = {
         roomId, deviceId, stream: null, socket: null, sendInterval: null,
         isRecording: false, recordingStartedAt: null, timerInterval: null,
-        videoEl, canvas, ctx, modeSelect, actionBtn, recIndicator, recTimer
+        videoEl, canvas, ctx, recBadge, recTimer, actionBtn, modeInputs
       };
       activeCameras.push(cam);
 
-      function updateButtonForMode() {
-        if (cam.isRecording) return; // kayıt sürerken buton metnini değiştirme
-        if (modeSelect.value === 'photo') {
-          actionBtn.textContent = "📸 Kare Yakala & DB'ye Kaydet";
-          actionBtn.classList.remove('recording');
+      function getMode() {
+        return card.querySelector(`input[name="mode-${index}"]:checked`).value;
+      }
+
+      function setMode(mode) {
+        card.querySelector(`input[name="mode-${index}"][value="${mode}"]`).checked = true;
+      }
+
+      function updateActionBtn() {
+        if (cam.isRecording) return;
+        if (getMode() === 'photo') {
+          actionBtn.className = 'btn btn-primary action-btn';
+          actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Yakala`;
         } else {
-          actionBtn.textContent = '⏺ Video Kaydını Başlat';
-          actionBtn.classList.remove('recording');
+          actionBtn.className = 'btn btn-green action-btn';
+          actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg> Kaydı Başlat`;
         }
       }
 
-      modeSelect.addEventListener('change', () => {
-        if (cam.isRecording) {
-          modeSelect.value = 'video';
-          statusEl.textContent = 'Devam eden video kaydını durdurmadan mod değiştiremezsiniz.';
-          return;
-        }
-        updateButtonForMode();
-      });
+      modeInputs.forEach(r => r.addEventListener('change', () => {
+        if (cam.isRecording) { setMode('video'); setStatus('Devam eden kaydı durdurmadan mod değiştiremezsiniz.', true); return; }
+        updateActionBtn();
+      }));
 
       actionBtn.addEventListener('click', () => {
-        if (modeSelect.value === 'photo') {
-          takeSnapshot(cam);
-        } else {
-          cam.isRecording ? stopRecording(cam) : startRecording(cam);
-        }
+        if (getMode() === 'photo') { takeSnapshot(cam); }
+        else { cam.isRecording ? stopRecording(cam) : startRecording(cam); }
       });
 
-      updateButtonForMode();
+      updateActionBtn();
 
-      // WebSocket bağlantısı
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      cam.socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId}`);
+      // WebSocket
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      cam.socket = new WebSocket(`${protocol}//${location.host}/ws-camera/${roomId}`);
       cam.socket.binaryType = 'arraybuffer';
-      cam.socket.onopen = () => { statusEl.textContent = `Kameraya bağlanıldı (Oda: ${roomId}).`; };
-      cam.socket.onerror = () => { statusEl.textContent = `Kamera bağlantısında hata: ${roomId}`; };
+      cam.socket.onopen  = () => setStatus(`Bağlandı: ${roomId}`);
+      cam.socket.onerror = () => setStatus(`Bağlantı hatası: ${roomId}`, true);
 
-      // Bu karta ÖZEL fiziksel kamerayı istiyoruz (deviceId ile, "exact").
       navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
         .then(stream => {
           cam.stream = stream;
           videoEl.srcObject = stream;
-
           cam.sendInterval = setInterval(() => {
             if (!cam.socket || cam.socket.readyState !== WebSocket.OPEN) return;
             if (videoEl.videoWidth === 0) return;
-
-            canvas.width = videoEl.videoWidth;
+            canvas.width  = videoEl.videoWidth;
             canvas.height = videoEl.videoHeight;
-            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(videoEl, 0, 0);
             canvas.toBlob(blob => {
               if (!blob) return;
               blob.arrayBuffer().then(buf => cam.socket.send(buf));
             }, 'image/jpeg', 0.7);
-          }, 200); // ~5 kare/saniye
+          }, 200);
         })
-        .catch(err => { statusEl.textContent = `Kamera hatası (${roomId}): ${err.message}`; });
+        .catch(err => setStatus(`Kamera hatası (${roomId}): ${err.message}`, true));
 
       syncRecordingState(cam);
     }
 
-    // --- "Kime/hangi işleme ait" formu --- TÜM kameralar için ortak.
+    // ── Context payload ───────────────────────────────────
     function readContextPayload() {
-      const val = id => document.getElementById(id).value.trim() || null;
+      const v = id => document.getElementById(id).value.trim() || null;
       return {
-        patientIdentifier: val('ctx-patient-id'),
-        patientName: val('ctx-patient-name'),
-        doctorName: val('ctx-doctor-name'),
-        procedureType: val('ctx-procedure-type'),
-        createdByName: val('ctx-created-by')
+        patientIdentifier: v('ctx-patient-id'),
+        patientName:       v('ctx-patient-name'),
+        doctorName:        v('ctx-doctor-name'),
+        procedureType:     v('ctx-procedure-type'),
+        createdByName:     v('ctx-created-by'),
       };
     }
 
+    // ── Snapshot ──────────────────────────────────────────
     async function takeSnapshot(cam) {
-      statusEl.textContent = `Kare yakalanıyor (${cam.roomId})...`;
+      setStatus(`Kare yakalanıyor (${cam.roomId})…`);
       try {
-        const response = await fetch(`/api/rooms/${cam.roomId}/capture`, {
+        const res = await fetch(`/api/rooms/${cam.roomId}/capture`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
         });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
-          return;
-        }
-
-        const data = await response.json();
-        statusEl.textContent = `Kaydedildi (${cam.roomId}, Id: ${data.id}, dosya: ${data.filePath}).`;
+        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        const d = await res.json();
+        setStatus(`Kaydedildi — Id: ${d.id}, Dosya: ${d.filePath}`);
         loadCaptures();
-      } catch (e) {
-        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
-      }
+      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Start recording ───────────────────────────────────
     async function startRecording(cam) {
-      statusEl.textContent = `Video kaydı başlatılıyor (${cam.roomId})...`;
+      setStatus(`Video kaydı başlatılıyor (${cam.roomId})…`);
       try {
-        const response = await fetch(`/api/rooms/${cam.roomId}/capture/video/start`, {
+        const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
         });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
-          return;
-        }
-
-        const data = await response.json();
-        enterRecordingState(cam, new Date(data.startedAt));
-        statusEl.textContent = `Kayıt başladı (${cam.roomId}, Id: ${data.id}).`;
+        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        const d = await res.json();
+        enterRecordingState(cam, new Date(d.startedAt));
+        setStatus(`Kayıt başladı — Id: ${d.id}`);
         loadCaptures();
-      } catch (e) {
-        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
-      }
+      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Stop recording ────────────────────────────────────
     async function stopRecording(cam) {
-      statusEl.textContent = `Video kaydı durduruluyor (${cam.roomId})...`;
+      setStatus(`Video kaydı durduruluyor (${cam.roomId})…`);
       try {
-        const response = await fetch(`/api/rooms/${cam.roomId}/capture/video/stop`, { method: 'POST' });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Hata: ' + (err.message || response.statusText);
-          return;
-        }
-
-        const data = await response.json();
+        const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/stop`, { method: 'POST' });
+        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        const d = await res.json();
         exitRecordingState(cam);
-        const seconds = data.durationMs ? Math.round(data.durationMs / 1000) : '?';
-        if (data.verified === false) {
-          statusEl.textContent = `⚠ Kayıt durduruldu (${cam.roomId}, Id: ${data.id}, süre: ${seconds}sn) ama dosya doğrulanamadı.`;
-        } else {
-          statusEl.textContent = `Kayıt durduruldu (${cam.roomId}, Id: ${data.id}, süre: ${seconds}sn).`;
-        }
+        const sec = d.durationMs ? Math.round(d.durationMs/1000) : '?';
+        setStatus(d.verified === false
+          ? `⚠ Kayıt durduruldu (${sec}sn) ama dosya doğrulanamadı — Id: ${d.id}`
+          : `Kayıt durduruldu — ${sec}sn, Id: ${d.id}`);
         loadCaptures();
-      } catch (e) {
-        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
-      }
+      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Recording state UI ────────────────────────────────
     function enterRecordingState(cam, startedAt) {
       cam.isRecording = true;
       cam.recordingStartedAt = startedAt;
-      cam.recIndicator.style.display = 'inline-flex';
-      cam.actionBtn.textContent = '⏹ Video Kaydını Durdur';
-      cam.actionBtn.classList.add('recording');
-      cam.modeSelect.value = 'video';
-      cam.modeSelect.disabled = true;
-
+      cam.recBadge.style.display = 'inline-flex';
+      cam.actionBtn.className = 'btn btn-red action-btn';
+      cam.actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Kaydı Durdur`;
+      cam.modeInputs.forEach(r => r.disabled = true);
       clearInterval(cam.timerInterval);
       cam.timerInterval = setInterval(() => updateTimer(cam), 500);
       updateTimer(cam);
@@ -378,190 +838,158 @@
     function exitRecordingState(cam) {
       cam.isRecording = false;
       cam.recordingStartedAt = null;
-      cam.recIndicator.style.display = 'none';
-      cam.modeSelect.disabled = false;
+      cam.recBadge.style.display = 'none';
+      cam.modeInputs.forEach(r => r.disabled = false);
       clearInterval(cam.timerInterval);
-      cam.actionBtn.textContent = "📸 Kare Yakala & DB'ye Kaydet";
-      cam.actionBtn.classList.remove('recording');
-      cam.modeSelect.value = 'photo';
+      // Reset to photo mode button
+      const idx = activeCameras.indexOf(cam);
+      cam.actionBtn.className = 'btn btn-primary action-btn';
+      cam.actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Yakala`;
     }
 
     function updateTimer(cam) {
       if (!cam.recordingStartedAt) return;
-      const elapsedSec = Math.floor((Date.now() - cam.recordingStartedAt.getTime()) / 1000);
-      const mm = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
-      const ss = String(elapsedSec % 60).padStart(2, '0');
-      cam.recTimer.textContent = `${mm}:${ss}`;
+      const s = Math.floor((Date.now() - cam.recordingStartedAt.getTime()) / 1000);
+      cam.recTimer.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
     }
 
-    // Sayfa (yeniden) açıldığında: sunucuda bu kamera için hâlâ devam eden bir
-    // kayıt var mı diye sor. Kayıt server-side olduğu için tarayıcı kapansa/
-    // yenilense bile devam ediyor olabilir.
     async function syncRecordingState(cam) {
       try {
         const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/status`);
-        const data = await res.json();
-        if (data.isRecording && data.capture) {
-          enterRecordingState(cam, new Date(data.capture.capturedAt));
-          statusEl.textContent = `Sunucuda devam eden bir kayıt bulundu (${cam.roomId}, Id: ${data.capture.id}).`;
+        const d = await res.json();
+        if (d.isRecording && d.capture) {
+          enterRecordingState(cam, new Date(d.capture.capturedAt));
+          setStatus(`Devam eden kayıt bulundu (${cam.roomId}, Id: ${d.capture.id})`);
         }
-      } catch (e) {
-        // Sessiz geç: durum senkronu opsiyonel bir iyileştirme.
-      }
+      } catch {}
     }
 
-    // Byte'ı okunaklı birime çevirir (KB/MB).
-    function formatFileSize(bytes) {
-      if (bytes == null) return '';
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    // ── Helpers ───────────────────────────────────────────
+    function fmtSize(b) {
+      if (b == null) return '';
+      if (b < 1024) return `${b} B`;
+      if (b < 1048576) return `${(b/1024).toFixed(1)} KB`;
+      return `${(b/1048576).toFixed(2)} MB`;
     }
 
     function typeBadge(item) {
-      const badge = (() => {
-        if (item.captureType === 'video') {
-          switch (item.status) {
-            case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
-            case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
-            case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
-            default: return '<span class="badge badge-video">🎥 Video</span>';
-          }
+      if (item.captureType === 'video') {
+        switch (item.status) {
+          case 'recording':   return `<span class="badge badge-recording">● Kayıtta</span>`;
+          case 'interrupted': return `<span class="badge badge-interrupted">⚠ Kesildi</span>`;
+          case 'corrupted':   return `<span class="badge badge-corrupted">✕ Bozuk</span>`;
+          default:            return `<span class="badge badge-video">▶ Video</span>`;
         }
-        return '<span class="badge badge-photo">📷 Fotoğraf</span>';
-      })();
-
-      const bits = [];
-      if (item.width && item.height) bits.push(`${item.width}×${item.height}`);
-      if (item.fileSizeBytes != null) bits.push(formatFileSize(item.fileSizeBytes));
-      const infoLine = bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
-
-      return badge + infoLine;
+      }
+      return `<span class="badge badge-photo">◉ Fotoğraf</span>`;
     }
 
-    function durationOrStatus(item) {
+    function contextCell(item) {
+      const lines = [];
+      if (item.patientName || item.patientIdentifier) {
+        const id = item.patientIdentifier ? ` <span style="color:var(--muted);font-weight:400">(${item.patientIdentifier})</span>` : '';
+        lines.push(`<div class="context-primary">${item.patientName ?? 'İsimsiz'}${id}</div>`);
+      }
+      const subs = [];
+      if (item.doctorName)    subs.push(item.doctorName);
+      if (item.procedureType) subs.push(item.procedureType);
+      if (item.roomName)      subs.push(item.roomName);
+      if (subs.length) lines.push(`<div class="context-sub">${subs.join(' · ')}</div>`);
+      return lines.length ? lines.join('') : `<span style="color:var(--border)">—</span>`;
+    }
+
+    function durationCell(item) {
       if (item.captureType !== 'video') return '—';
-      if (item.status === 'recording') return '<span style="color:#cc0000">devam ediyor…</span>';
+      if (item.status === 'recording') return `<span style="color:var(--red)">devam ediyor…</span>`;
       if (item.durationMs != null) {
-        const seconds = `${Math.round(item.durationMs / 1000)} sn`;
-        const main = item.status === 'interrupted' ? `~${seconds} (tahmini)` : seconds;
-        return main + techInfoLine(item);
+        const sec = Math.round(item.durationMs / 1000);
+        const main = item.status === 'interrupted' ? `~${sec}sn (tahmini)` : `${sec}sn`;
+        let sub = '';
+        if (item.frameCount && item.durationMs) {
+          const fps = (item.frameCount / (item.durationMs/1000)).toFixed(1);
+          sub = `<div class="context-sub">${item.frameCount} kare · ~${fps}fps`;
+          if (item.fileSizeBytes) sub += ` · ${fmtSize(item.fileSizeBytes)}`;
+          sub += '</div>';
+        }
+        return main + sub;
       }
       return '—';
     }
 
-    function techInfoLine(item) {
-      const bits = [];
-      if (item.frameCount != null && item.durationMs) {
-        const fps = (item.frameCount / (item.durationMs / 1000)).toFixed(1);
-        bits.push(`${item.frameCount} kare (~${fps}fps)`);
-      }
-      return bits.length > 0 ? `<br><span style="color:#999;font-size:11px">${bits.join(' · ')}</span>` : '';
-    }
-
-    function contextCell(item) {
-      const parts = [];
-      if (item.patientName || item.patientIdentifier) {
-        const idSuffix = item.patientIdentifier ? ` (${item.patientIdentifier})` : '';
-        parts.push(`<strong>${item.patientName ?? 'İsimsiz hasta'}</strong>${idSuffix}`);
-      }
-      if (item.doctorName) parts.push(item.doctorName);
-      if (item.procedureType) parts.push(item.procedureType);
-      if (item.roomName) parts.push(`<span style="color:#999">${item.roomName}</span>`);
-      if (item.createdByName) parts.push(`<span style="color:#999">Oluşturan: ${item.createdByName}</span>`);
-
-      return parts.length > 0
-        ? parts.join('<br>')
-        : '<span style="color:#aaa">—</span>';
-    }
-
     function previewCell(item) {
       if (item.captureType === 'video') {
-        if (item.status === 'recording') {
-          return '<span style="color:#cc0000">⏳ kayıt sürüyor…</span>';
-        }
+        if (item.status === 'recording') return `<span style="color:var(--red);font-size:12px">⏳ kayıt…</span>`;
         return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
       }
-      return `<img src="${item.filePath}" class="thumb" />`;
+      const info = (item.width && item.height) ? `${item.width}×${item.height}` : '';
+      return `<img src="${item.filePath}" class="thumb" title="${info}" />`;
     }
 
+    // ── Load captures ─────────────────────────────────────
     async function loadCaptures() {
-      // Taban oda kimliğiyle sorguluyoruz — sunucu (GetCaptures) bu odanın
-      // TÜM alt-kameralarının ("oda1-cam1", "oda1-cam2" vb.) kayıtlarını da
-      // otomatik olarak birlikte döndürüyor, ayrıca tek tek sormamıza gerek yok.
-      const res = await fetch(`/api/captures?roomId=${encodeURIComponent(baseRoomId())}`);
-      const data = await res.json();
-      const tbody = document.getElementById('captures-table');
-      tbody.innerHTML = '';
+      try {
+        const res  = await fetch(`/api/captures?roomId=${encodeURIComponent(baseRoomId())}`);
+        const data = await res.json();
+        const tbody = document.getElementById('captures-table');
+        tbody.innerHTML = '';
 
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">Henüz kayıt yok. Yukarıdan bir mod seçip ilk kaydı oluşturun.</td></tr>';
-        return;
-      }
+        if (data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7">
+            <div class="empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 3H8"/></svg>
+              Henüz kayıt yok
+            </div>
+          </td></tr>`;
+          return;
+        }
 
-      data.forEach(item => {
-        const isRecordingRow = item.status === 'recording';
-        const deleteBtn = isRecordingRow
-          ? ''
-          : `<button class="secondary" style="background:#cc0000;padding:6px 10px;font-size:12px;margin:0;" onclick="deleteCapture(${item.id})">🗑 Sil</button>`;
-        const refreshBtn = isRecordingRow
-          ? ''
-          : `<button class="secondary" style="background:#555;padding:6px 10px;font-size:12px;margin:0;" onclick="refreshMetadata(${item.id})">🔄 Yenile</button>`;
+        data.forEach(item => {
+          const rec = item.status === 'recording';
+          const delBtn = rec ? '' : `<button class="btn btn-red btn-sm" onclick="deleteCapture(${item.id})" title="Listeden gizle">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>`;
+          const refBtn = rec ? '' : `<button class="btn btn-ghost btn-sm" onclick="refreshMetadata(${item.id})" title="Metadata yenile">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>`;
 
-        const row = `
-          <tr>
-            <td>${previewCell(item)}</td>
-            <td>${item.id}</td>
-            <td>${typeBadge(item)}</td>
-            <td>${contextCell(item)}</td>
-            <td>${item.triggerSource}</td>
-            <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
-            <td>${durationOrStatus(item)}</td>
-            <td>${refreshBtn} ${deleteBtn}</td>
-          </tr>
-        `;
-        tbody.innerHTML += row;
-      });
+          tbody.innerHTML += `
+            <tr>
+              <td>${previewCell(item)}</td>
+              <td style="color:var(--muted);font-size:12px">#${item.id}</td>
+              <td>${typeBadge(item)}</td>
+              <td>${contextCell(item)}</td>
+              <td>${durationCell(item)}</td>
+              <td style="color:var(--muted);font-size:12px;white-space:nowrap">${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
+              <td><div class="actions-cell">${refBtn}${delBtn}</div></td>
+            </tr>`;
+        });
+      } catch(e) { setStatus('Kayıtlar yüklenemedi: '+e.message, true); }
     }
 
+    // ── Refresh metadata ──────────────────────────────────
     async function refreshMetadata(id) {
-      statusEl.textContent = `Id=${id} için dosya bilgileri yeniden okunuyor...`;
+      setStatus(`Id=${id} metadata yenileniyor…`);
       try {
-        const response = await fetch(`/api/captures/${id}/refresh-metadata`, { method: 'POST' });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Yenileme hatası: ' + (err.message || response.statusText);
-          return;
-        }
-
-        const data = await response.json();
-        statusEl.textContent = `Id=${id} güncellendi: ${data.width ?? '—'}×${data.height ?? '—'}, ${data.frameCount ?? '—'} kare, ${formatFileSize(data.fileSizeBytes)}.`;
+        const res = await fetch(`/api/captures/${id}/refresh-metadata`, { method: 'POST' });
+        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        const d = await res.json();
+        setStatus(`Id=${id} güncellendi: ${d.width ?? '—'}×${d.height ?? '—'}, ${d.frameCount ?? '—'} kare, ${fmtSize(d.fileSizeBytes)}`);
         loadCaptures();
-      } catch (e) {
-        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
-      }
+      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Delete capture ────────────────────────────────────
     async function deleteCapture(id) {
-      if (!confirm(`Id=${id} olan kaydı listeden kaldırmak istediğinize emin misiniz? (Dosya silinmez, sadece listeden gizlenir.)`)) {
-        return;
-      }
-
+      if (!confirm(`Id=${id} olan kaydı listeden kaldırmak istediğinize emin misiniz?\n(Dosya silinmez, sadece listeden gizlenir.)`)) return;
       try {
-        const response = await fetch(`/api/captures/${id}`, { method: 'DELETE' });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Silme hatası: ' + (err.message || response.statusText);
-          return;
-        }
-
-        statusEl.textContent = `Id=${id} listeden kaldırıldı.`;
+        const res = await fetch(`/api/captures/${id}`, { method: 'DELETE' });
+        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        setStatus(`Id=${id} listeden kaldırıldı`);
         loadCaptures();
-      } catch (e) {
-        statusEl.textContent = 'Bağlantı hatası: ' + e.message;
-      }
+      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Init ──────────────────────────────────────────────
     setupCameras();
     loadCaptures();
   </script>

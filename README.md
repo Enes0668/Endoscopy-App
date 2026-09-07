@@ -1,4 +1,4 @@
-# Endoskopi Web Uygulaması
+# EndoCapture — Endoskopi Kayıt Sistemi
 
 Merkezi bir sunucu, birden fazla odadaki (istasyondaki) endoskopi kameralarından
 tarayıcı üzerinden (WebSocket ile) canlı görüntü alıp fotoğraf/video olarak
@@ -60,14 +60,35 @@ kaydeden, PostgreSQL veritabanına yazan bir ASP.NET Core uygulaması.
 
 4. Tarayıcıda aç: `http://localhost:5199/`
 
+## Testleri Çalıştırma
+
+Proje, `Endoscopy.Tests` adlı bir xUnit test projesi içerir. Toplam **75 test**
+aşağıdaki alanları kapsar:
+
+| Test dosyası | Test | Kapsam |
+|---|---|---|
+| `CameraSessionTests.cs` | 11 | IsLive, IsRecording, StartRecording, StopRecording, bağlantı kopma, frame alma |
+| `CameraSessionManagerTests.cs` | 8 | Oturum yönetimi, GetOrCreate, TryGet, RecordingAutoStopped event |
+| `CaptureDbServiceTests.cs` | 27 | Insert, Complete, GetById, filtreleme, soft-delete, çok kameralı oda, ReconcileStaleRecordings |
+| `CapturesControllerTests.cs` | 14 | API endpoint'leri (HTTP 200/400/404/409/500) |
+| `AutoStopChainTests.cs` | 4 | Bağlantı kopunca DB'ye Interrupted yazılması |
+| `CodecDetectorTests.cs` | 5 | Codec önbellek, FOURCC/extension doğruluğu |
+| `FileIdentityTaggerTests.cs` | 4 | JPEG/dosyaya kimlik yazma, hata toleransı |
+
+Tümünü çalıştırmak için:
+
+```bash
+dotnet test
+```
+
 ## Sayfalar
 
 | Adres | Ne işe yarar |
 |---|---|
-| `/` (`index.html`) | Bir odanın ana ekranı — sayfa açılışında o bilgisayardaki **tüm kameraları otomatik bulur** (dahili webcam, ikinci bir USB kamera, OBS sanal kamera vb.), her biri için ayrı bir kart (canlı önizleme + foto/video kontrolü) açar, WebSocket ile gönderir, **sadece kendi odasının** (ve varsa alt-kameralarının) kayıtlarını listeler. Üstteki "oda kimliği" kutusuna hangi odaysan onu yaz. |
-| `/admin.html` | **Tüm odaların** kayıtlarını (filtresiz, ya da istersen tek bir odaya daraltarak) gösteren yönetici görünümü. Kamera/kayıt kontrolü yok, sadece listeleme. |
-| `/camera-ws-test.html` | Bağımsız bir test sayfası — sadece WebSocket/kamera akışını (tek kamera, fotoğraf/video API çağrılarıyla birlikte) izole test etmek için, ana akışın parçası değil. |
-| `/multi-camera-test.html` | Çoklu kamera senaryosunu (tek bilgisayara bağlı birden fazla kamera, manuel seçim ile) izole test etmek için ayrı bir sayfa. `index.html`'deki otomatik-bulma mantığının, elle seçim yapılabilen deneysel hali. |
+| `/` (`index.html`) | Bir odanın ana ekranı — sayfa açılışında o bilgisayardaki **tüm kameraları otomatik bulur** (dahili webcam, ikinci bir USB kamera, OBS sanal kamera vb.), her biri için ayrı bir kart (canlı önizleme + foto/video kontrolü) açar, WebSocket ile gönderir, **sadece kendi odasının** (ve varsa alt-kameralarının) kayıtlarını listeler. |
+| `/admin.html` | **Tüm odaların** kayıtlarını (filtresiz, ya da istersen tek bir odaya daraltarak) gösteren yönetici görünümü. |
+| `/camera-ws-test.html` | WebSocket/kamera akışını izole test etmek için bağımsız test sayfası. |
+| `/multi-camera-test.html` | Çoklu kamera senaryosunu (manuel seçim ile) test etmek için ayrı sayfa. |
 
 ## Farklı bir bilgisayardan/telefondan erişme
 
@@ -93,7 +114,7 @@ cihazlardan da erişilebilir:
 
 Bu, telefon + bilgisayardan eşzamanlı, bağımsız kayıt alınarak test edildi.
 
-## API'nin kısa özeti
+## API kısa özeti
 
 Oda bazlı (hepsi `{roomId}` alır, örn. `oda1`):
 - `POST /api/rooms/{roomId}/capture` — fotoğraf çeker
@@ -102,12 +123,47 @@ Oda bazlı (hepsi `{roomId}` alır, örn. `oda1`):
 - `GET /api/rooms/{roomId}/video-feed` — canlı MJPEG önizleme
 
 Oda'dan bağımsız:
-- `GET /api/captures?roomId=...` — kayıt listesi (roomId verilmezse tüm odalar; roomId verilirse o oda İLE ONUN `-cam1`, `-cam2` gibi alt-kameralarının kayıtları birlikte döner)
+- `GET /api/captures?roomId=...` — kayıt listesi (`roomId` verilmezse tüm odalar; verilirse o oda ile onun `-cam1`, `-cam2` gibi alt-kameralarının kayıtları birlikte döner)
 - `DELETE /api/captures/{id}` — soft-delete
 - `POST /api/captures/{id}/refresh-metadata` — dosyadan metadata'yı tazele
 
 WebSocket (API değil, ham bağlantı):
 - `ws(s)://.../ws-camera/{roomId}` — tarayıcının kamera karelerini bu odaya akıttığı yer
+
+## Proje yapısı
+
+```
+Endoscopy/
+├── Controllers/
+│   └── CapturesController.cs     # Tüm HTTP endpoint'leri
+├── Data/
+│   └── AppDbContext.cs            # EF Core context
+├── Models/
+│   └── MediaCapture.cs            # Veritabanı entity'si
+├── Services/
+│   ├── CameraSession.cs           # Tek bir odanın kamera/kayıt oturumu
+│   ├── CameraSessionManager.cs    # Tüm oturumların merkezi yöneticisi
+│   ├── CaptureDbService.cs        # Veritabanı servis katmanı
+│   ├── CodecDetector.cs           # Video codec tespiti ve önbellekleme
+│   ├── DeviceIdentityService.cs   # Makine adı/IP/MAC tespiti
+│   ├── FileIdentityTagger.cs      # Dosyaya kimlik yazma (TagLibSharp)
+│   └── VideoFileMetadataReader.cs # Video dosyasından metadata okuma
+├── wwwroot/
+│   ├── index.html                 # Ana oda ekranı (dark, modern UI)
+│   ├── admin.html                 # Yönetici kayıt listesi
+│   ├── camera-ws-test.html        # Tekli kamera test sayfası
+│   └── multi-camera-test.html     # Çoklu kamera test sayfası
+└── Program.cs                     # Uygulama başlangıcı, WebSocket handler
+
+Endoscopy.Tests/
+├── CameraSessionTests.cs
+├── CameraSessionManagerTests.cs
+├── CaptureDbServiceTests.cs
+├── CapturesControllerTests.cs
+├── AutoStopChainTests.cs
+├── CodecDetectorTests.cs
+└── FileIdentityTaggerTests.cs
+```
 
 ## Bilinen kısıtlar / sonradan ele alınması gerekenler
 
@@ -124,6 +180,5 @@ WebSocket (API değil, ham bağlantı):
   tetikleniyor; bağlantı açık ama sessiz kalırsa (örn. birkaç saniye kare
   gelmezse) otomatik durdurma yok.
 - **Sadece Windows'ta çalışıyor** (`OpenCvSharp4.runtime.win` paketi yüzünden).
-- Endoskopi cihazının gerçekten UVC-uyumlu (tarayıcının doğrudan erişebileceği
-  bir "kamera" gibi görünüp görünmediği) olup olmadığı henüz gerçek cihazla
+- Endoskopi cihazının gerçekten UVC-uyumlu olup olmadığı henüz gerçek cihazla
   doğrulanmadı — şimdiye kadarki tüm testler bilgisayar/telefon kamerasıyla yapıldı.
