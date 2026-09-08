@@ -8,7 +8,11 @@ on:
 
 jobs:
   publish:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest  # Linux runner daha hızlı ve stabil
+
+    permissions:
+      contents: read
+      packages: write   # GitHub Packages'e yazabilmek için zorunlu
 
     steps:
       - name: Kodu çek
@@ -18,15 +22,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
-      - name: GitHub Packages kaynağı ekle
-        run: |
-          dotnet nuget add source `
-            --username ${{ github.actor }} `
-            --password ${{ secrets.GITHUB_TOKEN }} `
-            --store-password-in-clear-text `
-            --name github `
-            "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          # NUGET_AUTH_TOKEN ile GitHub Packages kimlik doğrulaması
+          # setup-dotnet bu değişkeni otomatik olarak nuget.config'e yazar
+          source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore
         run: dotnet restore EndoCapture.Core/EndoCapture.Core.csproj
@@ -35,10 +35,12 @@ jobs:
         run: dotnet build EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --no-restore
 
       - name: Test (tüm projeyi)
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --verbosity normal
 
       - name: Pack
         run: dotnet pack EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --no-build --output nupkgs
 
       - name: Push to GitHub Packages
-        run: dotnet nuget push "nupkgs/*.nupkg" --source github --skip-duplicate
+        run: dotnet nuget push "nupkgs/*.nupkg" --skip-duplicate
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
