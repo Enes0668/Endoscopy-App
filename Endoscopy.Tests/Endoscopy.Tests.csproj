@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Endoscopy\Endoscopy.csproj" />
+    <ProjectReference Include="..\EndoCapture.Core\EndoCapture.Core.csproj" />
   </ItemGroup>
 
 </Project>

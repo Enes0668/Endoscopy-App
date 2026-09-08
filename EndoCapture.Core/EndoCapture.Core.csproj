@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- NuGet paket metadata -->
+    <PackageId>EndoCapture.Core</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Enes Melih Eroğlu</Authors>
+    <Company>SimplexBT</Company>
+    <Product>EndoCapture</Product>
+    <Description>
+      ASP.NET Core endoskopi kayıt sistemi için servis katmanı.
+      Çoklu oda/kamera yönetimi (CameraSession, CameraSessionManager),
+      PostgreSQL tabanlı medya kayıt servisi (CaptureDbService),
+      video codec tespiti, dosya kimlik etiketleme ve DI entegrasyonu içerir.
+    </Description>
+    <PackageTags>endoscopy;camera;recording;aspnetcore;opencv</PackageTags>
+    <RepositoryUrl>https://github.com/Enes0668/Endoscopy-App</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- EF Core migration'ları bu assembly'den çalışacak -->
+    <RootNamespace>Endoscopy</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Web SDK'sının aksine class library SDK'sı Microsoft.Extensions.*
+       namespace'lerini otomatik getirmiyor; global using ile ekliyoruz. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <!-- Design-time araçları: runtime'da paket tüketicisine gönderilmez -->
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260627" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260627" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
+  </ItemGroup>
+
+</Project>

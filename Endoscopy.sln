@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Endoscopy", "Endoscopy\Endo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Endoscopy.Tests", "Endoscopy.Tests\Endoscopy.Tests.csproj", "{CC0BC2EC-CCF6-49BA-B77D-ED3AF407760D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EndoCapture.Core", "EndoCapture.Core\EndoCapture.Core.csproj", "{06DD11A7-E716-408C-9092-3EE1913AB812}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{CC0BC2EC-CCF6-49BA-B77D-ED3AF407760D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC0BC2EC-CCF6-49BA-B77D-ED3AF407760D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CC0BC2EC-CCF6-49BA-B77D-ED3AF407760D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{06DD11A7-E716-408C-9092-3EE1913AB812}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{06DD11A7-E716-408C-9092-3EE1913AB812}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{06DD11A7-E716-408C-9092-3EE1913AB812}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{06DD11A7-E716-408C-9092-3EE1913AB812}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenCvSharp;
+using Endoscopy;
 using Endoscopy.Data;
 using Endoscopy.Models;
 using Endoscopy.Services;
@@ -10,37 +11,21 @@ using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Enum'ları ("photo", "recording" vb.) JSON'da metin olarak taşı; camelCase
-// politikası "Photo" -> "photo" üretiyor, yani API sözleşmesi (frontend'in
-// beklediği string değerler) hiç değişmedi.
+// Enum'ları ("photo", "recording" vb.) JSON'da metin olarak taşı.
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 
-// Çoklu oda/kamera desteği: eski CameraService (tek fiziksel kamera, sunucunun
-// kendi VideoCapture(0)'ı) kaldırıldı — artık her odanın kamerası kendi
-// tarayıcısından WebSocket ile buraya akıtılıyor (bkz. /ws-camera/{roomId}
-// endpoint'i ve Services/CameraSession.cs).
-// CameraSessionManager, her oda için ayrı bir CameraSession tutan singleton
-// kayıt defteri. CodecDetector de tüm odaların PAYLAŞTIĞI, bu makine için bir
-// kere hesaplanan codec tespitini tutan singleton (bkz. Services/CodecDetector.cs).
-builder.Services.AddSingleton<CameraSessionManager>();
-builder.Services.AddSingleton<CodecDetector>();
+// EndoCapture.Core — tüm servis/veri katmanı tek çağrıyla kaydedilir.
+builder.Services.AddEndoCapture(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection yapılandırmada eksik.");
+    options.StoragePath = "storage";
+});
 
-// Bu istasyonun (bilgisayarın) kimliğini (MachineName/IP/MAC) bir kere
-// tespit edip önbelleğe alan servis — bkz. Services/DeviceIdentityService.cs.
-builder.Services.AddSingleton<DeviceIdentityService>();
-
-// PostgreSQL üzerinde EF Core (bkz. Data/AppDbContext.cs, Models/). DbContext
-// scoped yaşam süresine sahip olmalı (thread-safe değil) — CaptureDbService de
-// bu yüzden scoped; her HTTP isteği kendi DbContext örneğini alır.
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddScoped<CaptureDbService>();
-
-// Prototipte tarayıcıdan (farklı porttan da olsa) rahatça test edebilmek için CORS açık.
+// CORS — tarayıcıdan farklı porttan da test edebilmek için açık.
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());

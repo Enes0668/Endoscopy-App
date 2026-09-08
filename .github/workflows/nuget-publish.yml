@@ -1,0 +1,44 @@
+name: Publish EndoCapture.Core to GitHub Packages
+
+on:
+  push:
+    tags:
+      - 'v*'          # Sadece "v1.0.0" gibi tag push'larında tetiklenir
+  workflow_dispatch:  # Elle de çalıştırılabilir
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: .NET 8 kur
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: GitHub Packages kaynağı ekle
+        run: |
+          dotnet nuget add source `
+            --username ${{ github.actor }} `
+            --password ${{ secrets.GITHUB_TOKEN }} `
+            --store-password-in-clear-text `
+            --name github `
+            "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+      - name: Restore
+        run: dotnet restore EndoCapture.Core/EndoCapture.Core.csproj
+
+      - name: Build
+        run: dotnet build EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --no-restore
+
+      - name: Test (tüm projeyi)
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Pack
+        run: dotnet pack EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --no-build --output nupkgs
+
+      - name: Push to GitHub Packages
+        run: dotnet nuget push "nupkgs/*.nupkg" --source github --skip-duplicate

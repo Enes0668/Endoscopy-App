@@ -10,3 +10,5 @@ appsettings.Development.json
 appsettings.Production.json
 .claude/
 
+
+nupkgs/
