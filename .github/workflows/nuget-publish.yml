@@ -43,4 +43,8 @@ jobs:
         run: dotnet pack EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --output nupkgs
 
       - name: Push to GitHub Packages
-        run: dotnet nuget push "nupkgs/*.nupkg" --source github --skip-duplicate
+        run: |
+          $pkg = Get-ChildItem -Path nupkgs -Filter "*.nupkg" | Select-Object -First 1
+          if (-not $pkg) { Write-Error "nupkgs/ klasöründe .nupkg bulunamadı!"; dir nupkgs; exit 1 }
+          Write-Host "Yükleniyor: $($pkg.FullName)"
+          dotnet nuget push $pkg.FullName --source github --skip-duplicate
