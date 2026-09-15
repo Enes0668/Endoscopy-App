@@ -6,6 +6,8 @@
   <title>EndoCapture — Endoskopi Kayıt Sistemi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="report-generator.css">
+  <link rel="stylesheet" href="image-annotator.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -683,8 +685,8 @@
 
     <!-- ── DOKTOR AYAK PEDALI & KISAYOL GÖSTERGESİ ── -->
     <div class="pedal-indicator" title="USB Ayak Pedalı veya Klavye Kısayolları Aktiftir">
-      <span class="pedal-icon">🦶</span>
-      <span><strong>Pedal / Kısayol:</strong> <kbd>Boşluk / F12</kbd> Fotoğraf &nbsp;|&nbsp; <kbd>R / Enter</kbd> Video</span>
+      <span class="pedal-icon" style="font-size:11px;font-weight:700;background:rgba(59,130,246,.25);color:#93c5fd;padding:2px 6px;border-radius:4px;">PEDAL</span>
+      <span><strong>Kısayol:</strong> <kbd>Boşluk / F12</kbd> Fotoğraf &nbsp;|&nbsp; <kbd>R / Enter</kbd> Video</span>
     </div>
 
     <span class="header-status" id="status">Başlatılıyor…</span>
@@ -706,6 +708,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Hasta Bilgileri
           </span>
+          <button class="btn btn-primary btn-sm" onclick="triggerReportGeneration()" style="background:#0284c7;border-color:#0284c7;display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Rapor Oluştur
+          </button>
         </div>
         <div class="card-body">
           <div class="patient-form">
@@ -747,10 +753,16 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 3H8"/><path d="M12 3v4"/></svg>
             Kayıtlar
           </span>
-          <button class="btn btn-ghost btn-sm" onclick="loadCaptures()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-            Yenile
-          </button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm" onclick="triggerReportGeneration()" style="background:#0284c7;border-color:#0284c7;display:inline-flex;align-items:center;gap:5px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Tıbbi Rapor
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="loadCaptures()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Yenile
+            </button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -901,7 +913,7 @@
               REC <span class="rec-timer">00:00</span>
             </span>
           </div>
-          <div class="pedal-active-badge">🦶 Pedal Aktif</div>
+          <div class="pedal-active-badge">Pedal Aktif</div>
         </div>
         <div class="cam-info">
           <div class="cam-name">${label || `Kamera ${index + 1}`}</div>
@@ -1009,7 +1021,7 @@
       if (!cam) return;
       triggerShutterFeedback(cam);
       const isRecNote = cam.isRecording ? ' (Video kaydı devam ediyor)' : '';
-      const prefix = triggerSource === 'FOOT_PEDAL' ? '🦶 Pedal: ' : '';
+      const prefix = triggerSource === 'FOOT_PEDAL' ? '[Pedal] ' : '';
       setStatus(`${prefix}Fotoğraf alınıyor (${cam.roomId})${isRecNote}…`);
 
       try {
@@ -1024,7 +1036,7 @@
           return;
         }
         const d = await res.json();
-        setStatus(`✓ ${prefix}Fotoğraf kaydedildi — Id: #${d.id}, Dosya: ${d.filePath}${isRecNote}`);
+        setStatus(`${prefix}Fotoğraf kaydedildi — Id: #${d.id}, Dosya: ${d.filePath}${isRecNote}`);
         loadCaptures();
       } catch(e) {
         setStatus('Bağlantı hatası: ' + e.message, true);
@@ -1034,7 +1046,7 @@
     // ── Start recording ───────────────────────────────────
     async function startRecording(cam, triggerSource = 'WEB_UI_BUTTON') {
       if (!cam) return;
-      const prefix = triggerSource === 'FOOT_PEDAL' ? '🦶 Pedal: ' : '';
+      const prefix = triggerSource === 'FOOT_PEDAL' ? '[Pedal] ' : '';
       setStatus(`${prefix}Video kaydı başlatılıyor (${cam.roomId})…`);
       try {
         const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/start`, {
@@ -1049,7 +1061,7 @@
         }
         const d = await res.json();
         enterRecordingState(cam, new Date(d.startedAt));
-        setStatus(`● ${prefix}Video kaydı başladı — Id: #${d.id} (Kayıt sırasında Boşluk tuşu/pedal ile fotoğraf çekebilirsiniz)`);
+        setStatus(`${prefix}Video kaydı başladı — Id: #${d.id} (Kayıt sırasında Boşluk tuşu/pedal ile fotoğraf çekebilirsiniz)`);
         loadCaptures();
       } catch(e) {
         setStatus('Bağlantı hatası: ' + e.message, true);
@@ -1071,8 +1083,8 @@
         exitRecordingState(cam);
         const sec = d.durationMs ? Math.round(d.durationMs / 1000) : '?';
         setStatus(d.verified === false
-          ? `⚠ Kayıt durduruldu (${sec}sn) ama dosya doğrulanamadı — Id: #${d.id}`
-          : `✓ Video kaydı durduruldu — ${sec}sn, Id: #${d.id}`);
+          ? `Kayıt durduruldu (${sec}sn) ama dosya doğrulanamadı — Id: #${d.id}`
+          : `Video kaydı durduruldu — ${sec}sn, Id: #${d.id}`);
         loadCaptures();
       } catch(e) {
         setStatus('Bağlantı hatası: ' + e.message, true);
@@ -1181,13 +1193,13 @@
     function typeBadge(item) {
       if (item.captureType === 'video') {
         switch (item.status) {
-          case 'recording':   return `<span class="badge badge-recording">● Kayıtta</span>`;
-          case 'interrupted': return `<span class="badge badge-interrupted">⚠ Kesildi</span>`;
-          case 'corrupted':   return `<span class="badge badge-corrupted">✕ Bozuk</span>`;
-          default:            return `<span class="badge badge-video">▶ Video</span>`;
+          case 'recording':   return `<span class="badge badge-recording">Kayıtta</span>`;
+          case 'interrupted': return `<span class="badge badge-interrupted">Kesildi</span>`;
+          case 'corrupted':   return `<span class="badge badge-corrupted">Bozuk</span>`;
+          default:            return `<span class="badge badge-video">Video</span>`;
         }
       }
-      return `<span class="badge badge-photo">◉ Fotoğraf</span>`;
+      return `<span class="badge badge-photo">Fotoğraf</span>`;
     }
 
     function contextCell(item) {
@@ -1200,8 +1212,8 @@
       if (item.doctorName)    subs.push(item.doctorName);
       if (item.procedureType) subs.push(item.procedureType);
       if (item.roomName)      subs.push(item.roomName);
-      if (item.createdByName) subs.push(`<span class="creator-badge">👤 ${item.createdByName}</span>`);
-      if (item.triggerSource === 'FOOT_PEDAL') subs.push(`<span class="pedal-tag">🦶 Pedal</span>`);
+      if (item.createdByName) subs.push(`<span class="creator-badge">${item.createdByName}</span>`);
+      if (item.triggerSource === 'FOOT_PEDAL') subs.push(`<span class="pedal-tag">Pedal</span>`);
       if (subs.length) lines.push(`<div class="context-sub">${subs.join(' · ')}</div>`);
       return lines.length ? lines.join('') : `<span style="color:var(--border)">—</span>`;
     }
@@ -1226,11 +1238,11 @@
 
     function previewCell(item) {
       if (item.captureType === 'video') {
-        if (item.status === 'recording') return `<span style="color:var(--red);font-size:12px">⏳ kayıt…</span>`;
+        if (item.status === 'recording') return `<span style="color:var(--red);font-size:12px">Kayıt sürüyor…</span>`;
         return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
       }
       const info = (item.width && item.height) ? `${item.width}×${item.height}` : '';
-      return `<img src="${item.filePath}" class="thumb" title="${info}" />`;
+      return `<img src="${item.filePath}" class="thumb" title="${info} · Tıklayarak Çizim/Ölçüm yapın" style="cursor:pointer" onclick="openAnnotatorForItem(${item.id})" />`;
     }
 
     // ── Load captures ─────────────────────────────────────
@@ -1238,6 +1250,7 @@
       try {
         const res  = await fetch(`/api/captures?roomId=${encodeURIComponent(baseRoomId())}`);
         const data = await res.json();
+        window.capturesData = data;
         const tbody = document.getElementById('captures-table');
         tbody.innerHTML = '';
 
@@ -1259,6 +1272,11 @@
           const refBtn = rec ? '' : `<button class="btn btn-ghost btn-sm" onclick="refreshMetadata(${item.id})" title="Metadata yenile">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
           </button>`;
+          const annBtn = (!rec && item.captureType === 'photo')
+            ? `<button class="btn btn-ghost btn-sm" onclick="openAnnotatorForItem(${item.id})" title="Fotoğraf üzerine çizim ve ölçüm yap">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>`
+            : '';
 
           tbody.innerHTML += `
             <tr>
@@ -1268,7 +1286,7 @@
               <td>${contextCell(item)}</td>
               <td>${durationCell(item)}</td>
               <td style="color:var(--muted);font-size:12px;white-space:nowrap">${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
-              <td><div class="actions-cell">${refBtn}${delBtn}</div></td>
+              <td><div class="actions-cell">${annBtn}${refBtn}${delBtn}</div></td>
             </tr>`;
         });
       } catch(e) { setStatus('Kayıtlar yüklenemedi: '+e.message, true); }
@@ -1297,9 +1315,51 @@
       } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Medical Report Trigger ───────────────────────────
+    function triggerReportGeneration() {
+      const patientId = document.getElementById('ctx-patient-id')?.value.trim();
+      const patientName = document.getElementById('ctx-patient-name')?.value.trim();
+      const doctorName = document.getElementById('ctx-doctor-name')?.value.trim();
+      const procedureType = document.getElementById('ctx-procedure-type')?.value.trim();
+      const createdByName = document.getElementById('ctx-created-by')?.value.trim();
+      const roomId = typeof activeRoomId !== 'undefined' ? activeRoomId : (baseRoomId ? baseRoomId() : 'oda1');
+
+      // Filter photos from capturesData
+      const photos = (window.capturesData || []).filter(c => c.captureType === 'photo');
+
+      if (window.MedicalReport) {
+        window.MedicalReport.open({
+          patientIdentifier: patientId,
+          patientName: patientName,
+          doctorName: doctorName,
+          procedureType: procedureType,
+          createdByName: createdByName,
+          roomName: roomId,
+          captures: photos
+        });
+      } else {
+        alert('Rapor motoru yükleniyor, lütfen birkaç saniye sonra tekrar deneyin.');
+      }
+    }
+
+    // ── Open Annotator ────────────────────────────────────
+    function openAnnotatorForItem(id) {
+      const item = (window.capturesData || []).find(c => c.id === id);
+      if (!item) return;
+      if (window.MedicalAnnotator) {
+        window.MedicalAnnotator.open(item, () => {
+          setStatus('İşaretli yeni fotoğraf kaydedildi.');
+          loadCaptures();
+        });
+      }
+    }
+
     // ── Init ──────────────────────────────────────────────
     setupCameras();
     loadCaptures();
   </script>
+  <script src="html2pdf.bundle.min.js"></script>
+  <script src="report-generator.js"></script>
+  <script src="image-annotator.js"></script>
 </body>
 </html>

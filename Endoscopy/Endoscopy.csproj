@@ -16,4 +16,8 @@
     <Folder Include="storage\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="EndoCapture.Core" Version="1.1.0" />
+  </ItemGroup>
+
 </Project>

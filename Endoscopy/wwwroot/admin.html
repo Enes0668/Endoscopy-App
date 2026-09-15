@@ -28,13 +28,16 @@
     .room-filter { margin-top: 10px; }
     .room-filter input { padding: 8px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
   </style>
+  <link rel="stylesheet" href="report-generator.css">
+  <link rel="stylesheet" href="image-annotator.css">
 </head>
 <body>
   <h2>Admin Görünümü</h2>
   <p class="subtitle">Tüm odaların kayıtlarını birlikte gösterir — oda ekranlarının (index.html) aksine burada oda filtresi YOK (isteğe bağlı hariç, aşağıda).</p>
 
   <div class="panel">
-    <button class="secondary" onclick="loadCaptures()">🔄 Listeyi Yenile</button>
+    <button class="secondary" onclick="loadCaptures()">Listeyi Yenile</button>
+    <button style="background:#0284c7;" onclick="openAdminReport()">Tıbbi Rapor Oluştur</button>
 
     <div class="room-filter">
       <label for="room-filter-input" style="font-size: 13px; color: #666;">İsteğe bağlı: sadece bir odayı görmek için oda kimliği yaz (boş = hepsi):</label><br>
@@ -76,13 +79,13 @@
       const badge = (() => {
         if (item.captureType === 'video') {
           switch (item.status) {
-            case 'recording': return '<span class="badge badge-recording">● Kayıtta</span>';
-            case 'interrupted': return '<span class="badge badge-interrupted">⚠ Kesintiye Uğradı</span>';
-            case 'corrupted': return '<span class="badge badge-corrupted">✕ Bozuk Dosya</span>';
-            default: return '<span class="badge badge-video">🎥 Video</span>';
+            case 'recording': return '<span class="badge badge-recording">Kayıtta</span>';
+            case 'interrupted': return '<span class="badge badge-interrupted">Kesintiye Uğradı</span>';
+            case 'corrupted': return '<span class="badge badge-corrupted">Bozuk Dosya</span>';
+            default: return '<span class="badge badge-video">Video</span>';
           }
         }
-        return '<span class="badge badge-photo">📷 Fotoğraf</span>';
+        return '<span class="badge badge-photo">Fotoğraf</span>';
       })();
 
       const bits = [];
@@ -131,11 +134,11 @@
     function previewCell(item) {
       if (item.captureType === 'video') {
         if (item.status === 'recording') {
-          return '<span style="color:#cc0000">⏳ kayıt sürüyor…</span>';
+          return '<span style="color:#cc0000">Kayıt sürüyor…</span>';
         }
         return `<video src="${item.filePath}" class="video-thumb" controls muted></video>`;
       }
-      return `<img src="${item.filePath}" class="thumb" />`;
+      return `<img src="${item.filePath}" class="thumb" style="cursor:pointer" onclick="openAnnotatorForAdmin(${item.id})" title="Tıklayarak Çizim ve Ölçüm Yapın" />`;
     }
 
     async function loadCaptures() {
@@ -158,14 +161,21 @@
         return;
       }
 
+      window.adminCaptures = data;
       data.forEach(item => {
         const isRecordingRow = item.status === 'recording';
         const deleteBtn = isRecordingRow
           ? ''
-          : `<button style="background:#cc0000;padding:6px 10px;font-size:12px;margin:0;" onclick="deleteCapture(${item.id})">🗑 Sil</button>`;
+          : `<button style="background:#cc0000;padding:6px 10px;font-size:12px;margin:0;" onclick="deleteCapture(${item.id})">Sil</button>`;
         const refreshBtn = isRecordingRow
           ? ''
-          : `<button style="background:#555;padding:6px 10px;font-size:12px;margin:0;" onclick="refreshMetadata(${item.id})">🔄 Yenile</button>`;
+          : `<button style="background:#555;padding:6px 10px;font-size:12px;margin:0 4px 0 0;" onclick="refreshMetadata(${item.id})">Yenile</button>`;
+        const reportBtn = (!isRecordingRow && item.captureType === 'photo')
+          ? `<button style="background:#0284c7;padding:6px 10px;font-size:12px;margin:0 4px 0 0;" onclick="openReportForItem(${item.id})" title="Bu fotoğraf ve hasta ile rapor oluştur">Rapor</button>`
+          : '';
+        const annotateBtn = (!isRecordingRow && item.captureType === 'photo')
+          ? `<button style="background:#0284c7;padding:6px 10px;font-size:12px;margin:0 4px 0 0;" onclick="openAnnotatorForAdmin(${item.id})" title="Fotoğraf üzerine çizim ve ölçüm yap">Çizim</button>`
+          : '';
 
         const row = `
           <tr>
@@ -174,14 +184,69 @@
             <td>${typeBadge(item)}</td>
             <td>${item.roomName ?? '<span style="color:#aaa">—</span>'}</td>
             <td>${contextCell(item)}</td>
-            <td>${item.triggerSource === 'FOOT_PEDAL' ? '<span title="Doktor Ayak Pedalı">🦶 Ayak Pedalı</span>' : item.triggerSource}</td>
+            <td>${item.triggerSource === 'FOOT_PEDAL' ? '<span title="Doktor Ayak Pedalı">Ayak Pedalı</span>' : item.triggerSource}</td>
             <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
             <td>${durationOrStatus(item)}</td>
-            <td>${refreshBtn} ${deleteBtn}</td>
+            <td>${annotateBtn}${reportBtn}${refreshBtn}${deleteBtn}</td>
           </tr>
         `;
         tbody.innerHTML += row;
       });
+    }
+
+    function openAnnotatorForAdmin(id) {
+      const item = (window.adminCaptures || []).find(c => c.id === id);
+      if (!item) return;
+      if (window.MedicalAnnotator) {
+        window.MedicalAnnotator.open(item, () => {
+          statusEl.textContent = 'İşaretli yeni fotoğraf başarıyla kaydedildi.';
+          loadCaptures();
+        });
+      }
+    }
+
+    function openAdminReport() {
+      const photos = (window.adminCaptures || []).filter(c => c.captureType === 'photo');
+      const firstWithContext = photos.find(c => c.patientName || c.patientIdentifier) || photos[0] || {};
+
+      if (window.MedicalReport) {
+        window.MedicalReport.open({
+          patientIdentifier: firstWithContext.patientIdentifier || '',
+          patientName: firstWithContext.patientName || '',
+          doctorName: firstWithContext.doctorName || '',
+          procedureType: firstWithContext.procedureType || '',
+          createdByName: firstWithContext.createdByName || '',
+          roomName: firstWithContext.roomName || '',
+          captures: photos
+        });
+      } else {
+        alert('Rapor motoru henüz hazır değil, lütfen sayfayı yenileyin.');
+      }
+    }
+
+    function openReportForItem(id) {
+      const photos = (window.adminCaptures || []).filter(c => c.captureType === 'photo');
+      const target = photos.find(c => c.id === id);
+      if (!target) return;
+
+      // Aynı hastaya/odaya ait fotoğrafları öncelikli topla
+      const patientPhotos = photos.filter(c => 
+        (target.patientIdentifier && c.patientIdentifier === target.patientIdentifier) ||
+        (target.patientName && c.patientName === target.patientName) ||
+        (c.roomName && c.roomName === target.roomName)
+      );
+
+      if (window.MedicalReport) {
+        window.MedicalReport.open({
+          patientIdentifier: target.patientIdentifier || '',
+          patientName: target.patientName || '',
+          doctorName: target.doctorName || '',
+          procedureType: target.procedureType || '',
+          createdByName: target.createdByName || '',
+          roomName: target.roomName || '',
+          captures: patientPhotos.length > 0 ? patientPhotos : [target]
+        });
+      }
     }
 
     async function refreshMetadata(id) {
@@ -220,5 +285,8 @@
 
     loadCaptures();
   </script>
+  <script src="html2pdf.bundle.min.js"></script>
+  <script src="report-generator.js"></script>
+  <script src="image-annotator.js"></script>
 </body>
 </html>

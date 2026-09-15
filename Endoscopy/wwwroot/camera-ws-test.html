@@ -85,10 +85,10 @@
     <canvas id="canvas" width="320" height="240" style="display:none"></canvas>
 
     <div class="buttons">
-        <button onclick="takePhoto()">📷 Fotoğraf Çek</button>
-        <button onclick="startRecording()">⏺ Kayıt Başlat</button>
-        <button class="danger" onclick="stopRecording()">⏹ Kayıt Durdur</button>
-        <button onclick="checkStatus()">🔄 Durum Sorgula</button>
+        <button onclick="takePhoto()">Fotoğraf Çek</button>
+        <button onclick="startRecording()">Kayıt Başlat</button>
+        <button class="danger" onclick="stopRecording()">Kayıt Durdur</button>
+        <button onclick="checkStatus()">Durum Sorgula</button>
     </div>
 
     <div id="log"></div>
@@ -132,9 +132,9 @@
             socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId()}`);
             socket.binaryType = 'arraybuffer';
 
-            socket.onopen = () => addLog(`🟢 Sunucuya bağlanıldı: Oda="${roomId()}"`);
-            socket.onclose = () => addLog("🔴 Bağlantı kapandı.");
-            socket.onerror = () => addLog("⚠️ WebSocket hatası.");
+            socket.onopen = () => addLog(`[Baglandi] Sunucuya bağlanıldı: Oda="${roomId()}"`);
+            socket.onclose = () => addLog("[Kapandi] Bağlantı kapandı.");
+            socket.onerror = () => addLog("[Hata] WebSocket hatası.");
 
             // Kamerayı sadece ilk seferinde açıyoruz (bkz. index.html'deki aynı
             // düzeltme) — tekrar "Bağlan"a basılınca eski akış hiç kapatılmadan
@@ -148,10 +148,10 @@
                 .then(stream => {
                     localStream = stream;
                     video.srcObject = stream;
-                    addLog("🎥 Kameraya erişildi.");
+                    addLog("[Kamera] Kameraya erişildi.");
                     startSending();
                 })
-                .catch(err => addLog(`❌ Kamera hatası: ${err.message}`));
+                .catch(err => addLog(`[Kamera Hatasi] ${err.message}`));
         }
 
         function startSending() {
@@ -164,7 +164,7 @@
                         socket.send(buf);
                         frameCount++;
                         if (frameCount % 25 === 1) {
-                            addLog(`📤 Kare #${frameCount} gönderildi (${buf.byteLength} byte)`);
+                            addLog(`[Kare] #${frameCount} gönderildi (${buf.byteLength} byte)`);
                         }
                     });
                 }, 'image/jpeg', 0.7);

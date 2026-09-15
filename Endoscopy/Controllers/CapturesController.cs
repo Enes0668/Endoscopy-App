@@ -17,6 +17,8 @@ public record CaptureRequest(
     public CaptureContext ToContext() => new(PatientIdentifier, PatientName, DoctorName, ProcedureType, RoomName, CreatedByName);
 }
 
+public record AnnotateRequest(string ImageBase64, string? Label = null);
+
 [ApiController]
 [Route("api")]
 public class CapturesController : ControllerBase
@@ -317,5 +319,105 @@ public class CapturesController : ControllerBase
             id, width, height, frameCount, fileSizeBytes);
 
         return Ok(new { id, width, height, frameCount, fileSizeBytes });
+    }
+
+    /// <summary>
+    /// Bir fotoğraf kaydının üzerinde yapılan çizim ve ölçümleri yeni bir
+    /// işaretli fotoğraf (TriggerSource=ANNOTATION) olarak kaydeder. Orijinal
+    /// fotoğraf korunur.
+    /// </summary>
+    [HttpPost("captures/{id}/annotate")]
+    public async Task<IActionResult> SaveAnnotatedCapture(long id, [FromBody] AnnotateRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ImageBase64))
+        {
+            return BadRequest(new { message = "Görüntü verisi (ImageBase64) boş olamaz." });
+        }
+
+        var original = _db.GetById(id);
+        if (original == null)
+        {
+            return NotFound(new { message = $"Id={id} ile eşleşen kayıt bulunamadı." });
+        }
+
+        try
+        {
+            var base64Data = request.ImageBase64;
+            var commaIdx = base64Data.IndexOf(',');
+            if (commaIdx >= 0)
+            {
+                base64Data = base64Data.Substring(commaIdx + 1);
+            }
+
+            var imageBytes = Convert.FromBase64String(base64Data);
+
+            var capturedAt = DateTimeOffset.UtcNow;
+            var roomId = original.RoomName ?? "oda1";
+            var fileName = $"annotated_{roomId}_{capturedAt.ToUnixTimeMilliseconds()}.jpg";
+
+            var storageDir = Path.Combine(_env.ContentRootPath, "storage");
+            Directory.CreateDirectory(storageDir);
+            var absoluteFilePath = Path.Combine(storageDir, fileName);
+
+            await System.IO.File.WriteAllBytesAsync(absoluteFilePath, imageBytes);
+
+            var relativePath = $"/storage/{fileName}";
+            var fileSizeBytes = imageBytes.Length;
+
+            int? width = original.Width;
+            int? height = original.Height;
+            try
+            {
+                using var mat = OpenCvSharp.Cv2.ImDecode(imageBytes, OpenCvSharp.ImreadModes.Color);
+                if (mat != null && !mat.Empty())
+                {
+                    width = mat.Width;
+                    height = mat.Height;
+                }
+            }
+            catch { /* fallback to original dimensions */ }
+
+            var context = new CaptureContext(
+                original.PatientIdentifier,
+                original.PatientName,
+                original.DoctorName,
+                original.ProcedureType,
+                original.RoomName,
+                original.CreatedByName);
+
+            var newId = _db.InsertCapture(
+                CaptureType.Photo,
+                relativePath,
+                capturedAt,
+                triggerSource: "ANNOTATION",
+                context: context,
+                fileSizeBytes: fileSizeBytes,
+                width: width,
+                height: height,
+                machineName: _device.MachineName,
+                localIpAddress: _device.LocalIpAddress,
+                localMacAddress: _device.LocalMacAddress);
+
+            FileIdentityTagger.TryWriteCaptureIdentity(absoluteFilePath, _device.MachineName, _device.LocalIpAddress, _device.LocalMacAddress, _logger);
+
+            _logger.LogInformation("İşaretli fotoğraf kaydedildi: Id={NewId}, OrijinalId={OrigId}, Dosya={FileName}", newId, id, fileName);
+
+            return Ok(new
+            {
+                id = newId,
+                originalId = id,
+                filePath = relativePath,
+                capturedAt,
+                width,
+                height,
+                fileSizeBytes,
+                triggerSource = "ANNOTATION"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "İşaretli fotoğraf kaydedilemedi: Id={Id}", id);
+            return StatusCode(500, new { message = "Fotoğraf kaydedilirken sunucu hatası oluştu: " + ex.Message });
+        }
     }
 }

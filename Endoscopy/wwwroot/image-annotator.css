@@ -1,0 +1,274 @@
+/* ── MEDICAL IMAGE ANNOTATOR & MEASUREMENT STYLES ───────── */
+
+.annotator-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+
+.annotator-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.annotator-container {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background: #090d16;
+  color: #f8fafc;
+  overflow: hidden;
+}
+
+/* ── Top Toolbar ────────────────────────────────────────── */
+.annotator-toolbar {
+  height: 56px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.annotator-title-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.annotator-title-area strong {
+  color: #f8fafc;
+}
+
+.annotator-tools-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f172a;
+  padding: 3px 6px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+.annotator-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.annotator-tool-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.annotator-tool-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.4);
+}
+
+.annotator-divider {
+  width: 1px;
+  height: 22px;
+  background: #334155;
+  margin: 0 4px;
+}
+
+/* Color Palette */
+.annotator-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.6);
+  transform: scale(1.1);
+}
+
+/* Stroke Width */
+.annotator-width-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.annotator-width-picker select {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+}
+
+/* Caliper Calibration Box */
+.annotator-caliper-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.annotator-caliper-box input {
+  width: 45px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #38bdf8;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px;
+  font-size: 11px;
+}
+
+/* Action Buttons */
+.annotator-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.annotator-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.annotator-btn-primary {
+  background: #0284c7;
+  color: white;
+  border-color: #0284c7;
+}
+.annotator-btn-primary:hover {
+  background: #0369a1;
+}
+
+.annotator-btn-ghost {
+  background: transparent;
+  color: #cbd5e1;
+  border-color: #475569;
+}
+.annotator-btn-ghost:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+/* ── Workspace & Canvas ─────────────────────────────────── */
+.annotator-workspace {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: radial-gradient(circle, #131b2e 0%, #080c14 100%);
+  overflow: auto;
+  padding: 20px;
+  user-select: none;
+}
+
+.annotator-canvas-wrapper {
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  line-height: 0;
+}
+
+#annotator-canvas {
+  display: block;
+  cursor: crosshair;
+}
+
+/* Inline text input overlay for canvas typing */
+.annotator-inline-input {
+  position: absolute;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1.5px solid #0284c7;
+  border-radius: 4px;
+  color: #ffffff;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  z-index: 10;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* Bottom Hint Bar */
+.annotator-bottom-bar {
+  height: 32px;
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.annotator-bottom-bar kbd {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}

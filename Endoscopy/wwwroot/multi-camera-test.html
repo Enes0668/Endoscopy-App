@@ -101,7 +101,7 @@
 </head>
 <body>
     <div class="warning">
-        ⚠️ Deneysel test sayfası — <strong>tek bir tarayıcı sekmesinden, birden fazla kamerayı aynı anda</strong>
+        Deneysel test sayfası — <strong>tek bir tarayıcı sekmesinden, birden fazla kamerayı aynı anda</strong>
         seçip her birinden bağımsız akış/kayıt almayı test etmek için (örn. OBS sanal kamera + dahili
         webcam senaryosu). Her seçilen kamera, sunucuda ayrı bir "oda" (<code>&lt;taban-oda&gt;-camN</code>) gibi
         davranır — sunucu tarafında hiçbir değişiklik gerekmedi, sadece bu sayfa yeni.
@@ -111,12 +111,12 @@
 
     <div class="setup">
         Taban oda kimliği: <input type="text" id="baseRoomIdInput" value="oda1" />
-        <button onclick="listCameras()">🔍 Kameraları Bul</button>
+        <button onclick="listCameras()">Kameraları Bul</button>
     </div>
 
     <div id="device-list"></div>
 
-    <button onclick="startSelected()">▶ Seçilen Kameralarla Başlat</button>
+    <button onclick="startSelected()">Seçilen Kameralarla Başlat</button>
 
     <div class="cameras" id="cameras"></div>
 
@@ -157,7 +157,7 @@
                     </label>
                 `).join('');
             } catch (err) {
-                deviceListEl.innerHTML = `❌ Kamera listesi alınamadı: ${err.message}`;
+                deviceListEl.innerHTML = `Kamera listesi alınamadı: ${err.message}`;
             }
         }
 
@@ -189,9 +189,9 @@
                 <h4>${label} → Oda: <code>${roomId}</code></h4>
                 <video autoplay playsinline muted></video>
                 <div>
-                    <button class="small" onclick="cameraAction(${index}, 'capture')">📷 Fotoğraf</button>
-                    <button class="small" onclick="cameraAction(${index}, 'start')">⏺ Başlat</button>
-                    <button class="small danger" onclick="cameraAction(${index}, 'stop')">⏹ Durdur</button>
+                    <button class="small" onclick="cameraAction(${index}, 'capture')">Fotoğraf</button>
+                    <button class="small" onclick="cameraAction(${index}, 'start')">Başlat</button>
+                    <button class="small danger" onclick="cameraAction(${index}, 'stop')">Durdur</button>
                 </div>
                 <div class="camera-log"></div>
             `;
@@ -215,15 +215,15 @@
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             camState.socket = new WebSocket(`${protocol}//${window.location.host}/ws-camera/${roomId}`);
             camState.socket.binaryType = 'arraybuffer';
-            camState.socket.onopen = () => log(`🟢 Bağlanıldı: ${roomId}`);
-            camState.socket.onerror = () => log('⚠️ WebSocket hatası.');
+            camState.socket.onopen = () => log(`[Baglandi] ${roomId}`);
+            camState.socket.onerror = () => log('[Hata] WebSocket hatası.');
 
             // Bu kameraya ÖZEL cihazı istiyoruz — "exact" ile tarayıcıya "başka
             // kamera değil, TAM OLARAK bu deviceId'yi ver" diyoruz.
             navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
                 .then(stream => {
                     videoEl.srcObject = stream;
-                    log('🎥 Kameraya erişildi.');
+                    log('[Kamera] Kameraya erişildi.');
 
                     camState.sendInterval = setInterval(() => {
                         if (camState.socket.readyState !== WebSocket.OPEN) return;
@@ -238,13 +238,13 @@
                                 camState.socket.send(buf);
                                 camState.frameCount++;
                                 if (camState.frameCount % 25 === 1) {
-                                    log(`📤 Kare #${camState.frameCount}`);
+                                    log(`[Kare] #${camState.frameCount}`);
                                 }
                             });
                         }, 'image/jpeg', 0.7);
                     }, 200); // ~5 kare/saniye
                 })
-                .catch(err => log(`❌ Kamera hatası: ${err.message}`));
+                .catch(err => log(`[Kamera Hatasi] ${err.message}`));
         }
 
         async function cameraAction(index, action) {
@@ -271,7 +271,7 @@
                 cam.logEl.scrollTop = cam.logEl.scrollHeight;
             } catch (err) {
                 const p = document.createElement('p');
-                p.textContent = `❌ İstek hatası: ${err.message}`;
+                p.textContent = `[Hata] İstek hatası: ${err.message}`;
                 cam.logEl.appendChild(p);
             }
         }

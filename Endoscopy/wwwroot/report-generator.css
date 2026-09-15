@@ -1,0 +1,633 @@
+/* ── MEDICAL REPORT GENERATOR STYLES ─────────────────────── */
+
+/* ── Modal Overlay & Container ─────────────────────────── */
+.report-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+
+.report-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.report-modal {
+  background: #0f172a;
+  color: #f8fafc;
+  width: 98vw;
+  max-width: 1440px;
+  height: 94vh;
+  max-height: 94vh;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn .2s ease-out;
+}
+
+@keyframes modalScaleIn {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ── Modal Header ───────────────────────────────────────── */
+.report-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+.report-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.report-modal-title .badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.report-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.report-btn-primary {
+  background: #0284c7;
+  color: white;
+  border-color: #0284c7;
+}
+.report-btn-primary:hover {
+  background: #0369a1;
+}
+
+.report-btn-success {
+  background: #16a34a;
+  color: white;
+  border-color: #16a34a;
+}
+.report-btn-success:hover {
+  background: #15803d;
+}
+
+.report-btn-ghost {
+  background: transparent;
+  color: #94a3b8;
+  border-color: #475569;
+}
+.report-btn-ghost:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+/* ── Modal Body (Split Layout: Form & Live A4) ──────────── */
+.report-modal-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  overflow: hidden;
+}
+
+@media (max-width: 1080px) {
+  .report-modal-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+/* ── Form Sidebar ───────────────────────────────────────── */
+.report-editor-col {
+  background: #0f172a;
+  border-right: 1px solid #334155;
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.report-section-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.report-section-box h4 {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.report-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.report-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.report-field input,
+.report-field select,
+.report-field textarea {
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #f8fafc;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.report-field input:focus,
+.report-field select:focus,
+.report-field textarea:focus {
+  border-color: #0284c7;
+}
+
+.report-field textarea {
+  resize: vertical;
+  min-height: 55px;
+}
+
+.template-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: #334155;
+  color: #38bdf8;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  transition: background .15s;
+}
+.template-badge:hover {
+  background: #0284c7;
+  color: #fff;
+}
+
+/* ── Image Selector in Editor ───────────────────────────── */
+.report-img-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 4px;
+}
+
+.report-img-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  background: #000;
+  aspect-ratio: 4/3;
+}
+
+.report-img-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.report-img-item.selected {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.4);
+}
+
+.report-img-item .img-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+}
+
+.report-img-item.selected .img-check {
+  background: #0284c7;
+}
+
+.report-img-captions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.caption-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.caption-row img {
+  width: 32px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.caption-row input {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #f8fafc;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* ── Live A4 Preview Column ─────────────────────────────── */
+.report-preview-col {
+  background: #334155;
+  overflow-y: auto;
+  padding: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── A4 Medical Sheet (Pixel-Perfect) ───────────────────── */
+.medical-report-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  background: #ffffff;
+  color: #1e293b;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  padding: 12mm 16mm;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  line-height: 1.35;
+}
+
+/* Sheet Header */
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2.5px solid #0284c7;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.sheet-logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sheet-cross-icon {
+  width: 44px;
+  height: 44px;
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.sheet-institution-title {
+  font-size: 15pt;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+}
+
+.sheet-unit-subtitle {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #0284c7;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.sheet-unit-contact {
+  font-size: 8.5pt;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.sheet-meta-area {
+  text-align: right;
+  font-size: 8.5pt;
+  color: #475569;
+}
+
+.sheet-report-badge {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 9pt;
+  margin-bottom: 4px;
+}
+
+/* Patient Demographic Table */
+.sheet-patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 9.5pt;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sheet-patient-table td {
+  padding: 5px 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.sheet-patient-table .lbl {
+  width: 18%;
+  background: #f1f5f9;
+  font-weight: 700;
+  color: #475569;
+}
+
+.sheet-patient-table .val {
+  width: 32%;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* Section Titles in Sheet */
+.sheet-section-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #0284c7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-left: 3px solid #0284c7;
+  padding-left: 8px;
+  margin: 10px 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Endoscopic Images Grid in Sheet */
+.sheet-images-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.sheet-images-grid.grid-1 { grid-template-columns: 1fr; max-width: 300px; margin: 0 auto 12px auto; }
+.sheet-images-grid.grid-2 { grid-template-columns: 1fr 1fr; }
+.sheet-images-grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.sheet-images-grid.grid-4 { grid-template-columns: 1fr 1fr; }
+.sheet-images-grid.grid-6 { grid-template-columns: repeat(3, 1fr); }
+
+.sheet-img-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-img-card img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+}
+
+.sheet-img-caption {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 8pt;
+  font-weight: 600;
+  padding: 3px 6px;
+  text-align: center;
+  border-top: 1px solid #e2e8f0;
+  min-height: 18px;
+}
+
+/* Findings and Diagnosis */
+.sheet-text-block {
+  font-size: 9.5pt;
+  color: #1e293b;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  padding: 0 4px;
+}
+
+.sheet-diagnosis-box {
+  background: #f0f9ff;
+  border: 1.5px solid #0284c7;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.sheet-diagnosis-box .box-title {
+  font-size: 9.5pt;
+  font-weight: 800;
+  color: #0369a1;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.sheet-diagnosis-box .box-content {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: pre-wrap;
+}
+
+/* Sheet Footer: Doctor signature and disclaimer */
+.sheet-footer {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 10px;
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.sheet-disclaimer {
+  font-size: 8pt;
+  color: #94a3b8;
+  max-width: 55%;
+  line-height: 1.3;
+}
+
+.sheet-signature-box {
+  text-align: center;
+  width: 180px;
+}
+
+.sheet-sig-doctor {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sheet-sig-title {
+  font-size: 8.5pt;
+  color: #64748b;
+  margin-bottom: 30px;
+}
+
+.sheet-sig-line {
+  border-top: 1px solid #0f172a;
+  margin-top: 30px;
+  padding-top: 3px;
+  font-size: 8pt;
+  color: #64748b;
+}
+
+/* ── PRINT MEDIA RULES ──────────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .report-modal-overlay,
+  .report-modal-overlay.active {
+    position: static;
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .report-modal {
+    position: static;
+    width: 100% !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .report-modal-header,
+  .report-editor-col,
+  .report-modal-actions {
+    display: none !important;
+  }
+
+  .report-modal-body {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .report-preview-col {
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .medical-report-sheet,
+  .medical-report-sheet * {
+    visibility: visible;
+  }
+
+  .medical-report-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 12mm 15mm !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
