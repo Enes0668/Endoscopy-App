@@ -174,7 +174,7 @@
             <td>${typeBadge(item)}</td>
             <td>${item.roomName ?? '<span style="color:#aaa">—</span>'}</td>
             <td>${contextCell(item)}</td>
-            <td>${item.triggerSource}</td>
+            <td>${item.triggerSource === 'FOOT_PEDAL' ? '<span title="Doktor Ayak Pedalı">🦶 Ayak Pedalı</span>' : item.triggerSource}</td>
             <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
             <td>${durationOrStatus(item)}</td>
             <td>${refreshBtn} ${deleteBtn}</td>

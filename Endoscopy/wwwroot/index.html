@@ -127,10 +127,34 @@
       margin-left: auto;
       font-size: 12px;
       color: var(--muted);
-      max-width: 320px;
+      max-width: 240px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .pedal-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(59,130,246,.12);
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: #93c5fd;
+      margin-left: 10px;
+      flex-shrink: 0;
+    }
+    .pedal-indicator strong { color: #fff; }
+    .pedal-indicator kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11px;
+      color: #f1f5f9;
+      font-family: inherit;
     }
 
     /* ── LAYOUT ─────────────────────────────────────────── */
@@ -146,8 +170,18 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      flex: 0 0 auto;
+      flex: 0 0 450px;
+      width: 450px;
       min-width: 0;
+      max-height: calc(100vh - 88px);
+      overflow-y: auto;
+      padding-right: 4px;
+      transition: width .2s ease, flex-basis .2s ease;
+    }
+    .left-col.has-multi-cam {
+      flex: 0 0 860px;
+      width: 860px;
+      max-width: 62vw;
     }
 
     .right-col {
@@ -169,7 +203,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 16px;
+      padding: 12px 16px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -179,13 +213,17 @@
       color: var(--text);
     }
 
-    .card-body { padding: 16px; }
+    .card-body { padding: 14px 16px; }
 
-    /* ── CAMERAS GRID ───────────────────────────────────── */
+    /* ── CAMERAS GRID (Yan yana / 2 Kolon) ──────────────── */
     .cameras-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      width: 100%;
+    }
+    .cameras-grid.multi-cam {
+      grid-template-columns: 1fr 1fr;
     }
 
     /* ── CAMERA CARD ────────────────────────────────────── */
@@ -194,8 +232,14 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
-      width: 400px;
+      width: 100%;
       flex-shrink: 0;
+      position: relative;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .camera-card.pedal-selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(59,130,246,.3);
     }
 
     .video-container {
@@ -203,6 +247,7 @@
       width: 100%;
       aspect-ratio: 4/3;
       background: #000;
+      overflow: hidden;
     }
 
     .video-container video {
@@ -210,6 +255,20 @@
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    .shutter-flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease-out;
+      z-index: 20;
+    }
+    .shutter-flash.flashing {
+      opacity: 0.9;
+      transition: none;
     }
 
     .video-overlay {
@@ -220,6 +279,7 @@
       justify-content: space-between;
       padding: 10px;
       pointer-events: none;
+      z-index: 10;
     }
 
     .live-badge {
@@ -263,6 +323,24 @@
     }
     .rec-timer { font-variant-numeric: tabular-nums; }
 
+    .pedal-active-badge {
+      display: none;
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0,0,0,.7);
+      border: 1px solid rgba(59,130,246,.5);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #93c5fd;
+      z-index: 10;
+      pointer-events: none;
+    }
+
     .video-no-signal {
       position: absolute;
       inset: 0;
@@ -277,8 +355,11 @@
     .video-no-signal svg { opacity: .3; }
 
     .cam-info {
-      padding: 12px 14px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .cam-name {
       font-size: 13px;
@@ -291,58 +372,83 @@
     .cam-room {
       font-size: 11px;
       color: var(--muted);
-      margin-top: 2px;
     }
 
     .cam-controls {
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .mode-toggle {
-      display: flex;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .mode-toggle label {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--muted);
-      cursor: pointer;
-      transition: all .15s;
-    }
-    .mode-toggle input[type="radio"] { display: none; }
-    .mode-toggle input[type="radio"]:checked + label {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .action-btn {
-      flex: 1;
-      text-align: center;
-      justify-content: center;
-    }
-
-    /* ── PATIENT INFO FORM ──────────────────────────────── */
-    .patient-form {
+      padding: 10px 14px;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
 
+    .cam-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 12px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .cam-btn:active { transform: scale(.97); }
+
+    .btn-snap {
+      background: #2563eb;
+      color: #fff;
+    }
+    .btn-snap:hover { background: #1d4ed8; }
+
+    .btn-rec {
+      color: #fff;
+    }
+    .btn-rec-start {
+      background: #16a34a;
+    }
+    .btn-rec-start:hover { background: #15803d; }
+
+    .btn-rec-stop {
+      background: #dc2626;
+      animation: pulse-red-border 1.5s infinite;
+    }
+    .btn-rec-stop:hover { background: #b91c1c; }
+
+    .shortcut-hint {
+      display: inline-block;
+      font-size: 10px;
+      font-family: inherit;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: rgba(255,255,255,.9);
+    }
+
+    /* ── PATIENT INFO FORM ──────────────────────────────── */
+    .patient-card {
+      flex-shrink: 0;
+    }
+
+    .patient-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .left-col.has-multi-cam .patient-form {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
     .field label {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 5px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--muted);
       margin-bottom: 4px;
       text-transform: uppercase;
@@ -355,19 +461,38 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text);
-      font-size: 13px;
+      font-size: 12px;
       font-family: 'Inter', sans-serif;
-      padding: 8px 11px;
+      padding: 7px 10px;
       outline: none;
       transition: border-color .15s;
     }
     .field input::placeholder { color: #475569; }
     .field input:focus { border-color: var(--primary); }
 
+    .field-full {
+      grid-column: 1 / -1;
+    }
+
+    .field-highlight {
+      background: rgba(30,41,59,.5);
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+    }
+    .field-highlight label {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+    .field-highlight input {
+      background: var(--surface);
+      border-color: rgba(59,130,246,.4);
+    }
+
     .field-hint {
       grid-column: 1 / -1;
       font-size: 11px;
-      color: #475569;
+      color: #64748b;
       padding-top: 2px;
     }
 
@@ -446,7 +571,25 @@
     .badge-corrupted  { background: rgba(100,116,139,.15);color: #94a3b8; border: 1px solid rgba(100,116,139,.2); }
 
     .context-primary { font-weight: 600; color: var(--text); }
-    .context-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .context-sub { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+    .creator-badge {
+      color: #93c5fd;
+      font-weight: 500;
+    }
+
+    .pedal-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(59,130,246,.18);
+      color: #93c5fd;
+      border: 1px solid rgba(59,130,246,.35);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-weight: 600;
+    }
 
     .actions-cell { display: flex; gap: 6px; align-items: center; }
 
@@ -469,9 +612,41 @@
       0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
       50% { box-shadow: 0 0 0 4px rgba(34,197,94,0); }
     }
+    @keyframes pulse-red-border {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4); }
+      50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+    }
 
     /* ── CANVAS hidden ──────────────────────────────────── */
     canvas { display: none; }
+
+    /* ── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 1360px) {
+      .left-col.has-multi-cam {
+        flex: 0 0 740px;
+        width: 740px;
+      }
+    }
+    @media (max-width: 1100px) {
+      .main {
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      .left-col, .left-col.has-multi-cam {
+        flex: none;
+        width: 100%;
+        max-width: 100%;
+        max-height: none;
+      }
+    }
+    @media (max-width: 680px) {
+      .cameras-grid.multi-cam {
+        grid-template-columns: 1fr;
+      }
+      .left-col.has-multi-cam .patient-form {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
 
     /* ── SCROLLBAR ──────────────────────────────────────── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -506,6 +681,12 @@
       </button>
     </div>
 
+    <!-- ── DOKTOR AYAK PEDALI & KISAYOL GÖSTERGESİ ── -->
+    <div class="pedal-indicator" title="USB Ayak Pedalı veya Klavye Kısayolları Aktiftir">
+      <span class="pedal-icon">🦶</span>
+      <span><strong>Pedal / Kısayol:</strong> <kbd>Boşluk / F12</kbd> Fotoğraf &nbsp;|&nbsp; <kbd>R / Enter</kbd> Video</span>
+    </div>
+
     <span class="header-status" id="status">Başlatılıyor…</span>
   </header>
 
@@ -519,7 +700,7 @@
       <div class="cameras-grid" id="cameras-grid"></div>
 
       <!-- Patient Info -->
-      <div class="card">
+      <div class="card patient-card">
         <div class="card-header">
           <span class="card-title">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -533,22 +714,25 @@
               <input id="ctx-patient-id" type="text" placeholder="örn. 10293847" />
             </div>
             <div class="field">
-              <label for="ctx-patient-name">Hasta Adı</label>
+              <label for="ctx-patient-name">Hasta Adı Soyadı</label>
               <input id="ctx-patient-name" type="text" placeholder="örn. Ahmet Yılmaz" />
             </div>
             <div class="field">
-              <label for="ctx-doctor-name">Doktor</label>
+              <label for="ctx-doctor-name">Doktor Adı</label>
               <input id="ctx-doctor-name" type="text" placeholder="örn. Dr. Ayşe Kaya" />
             </div>
             <div class="field">
-              <label for="ctx-procedure-type">Prosedür Türü</label>
+              <label for="ctx-procedure-type">Prosedür / İşlem</label>
               <input id="ctx-procedure-type" type="text" placeholder="örn. Kolonoskopi" />
             </div>
-            <div class="field">
-              <label for="ctx-created-by">Oluşturan</label>
+            <div class="field field-full field-highlight">
+              <label for="ctx-created-by">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Kaydı Oluşturan (Kullanıcı / Hemşire / Teknisyen)
+              </label>
               <input id="ctx-created-by" type="text" placeholder="örn. Hemşire Zeynep" />
             </div>
-            <p class="field-hint">Tüm alanlar isteğe bağlıdır. Birden fazla kamera varsa hepsine aynı bilgi yazılır.</p>
+            <p class="field-hint">Tüm alanlar isteğe bağlıdır. "Oluşturan" bilgisi otomatik hatırlanır ve kayıtlara damgalanır.</p>
           </div>
         </div>
       </div>
@@ -607,9 +791,57 @@
       loadCaptures();
     }
 
-    // ── Multi-camera ──────────────────────────────────────
+    // ── Multi-camera & Doktor Pedalı ────────────────────
     let activeCameras = [];
     let setupToken = 0;
+    let selectedCameraIndex = 0;
+
+    function getSelectedCam() {
+      if (activeCameras.length === 0) return null;
+      if (selectedCameraIndex >= activeCameras.length) selectedCameraIndex = 0;
+      return activeCameras[selectedCameraIndex];
+    }
+
+    function updateCameraSelectionUI() {
+      activeCameras.forEach((cam, idx) => {
+        if (idx === selectedCameraIndex) {
+          cam.cardEl.classList.add('pedal-selected');
+          if (cam.pedalBadge) cam.pedalBadge.style.display = 'inline-flex';
+        } else {
+          cam.cardEl.classList.remove('pedal-selected');
+          if (cam.pedalBadge) cam.pedalBadge.style.display = 'none';
+        }
+      });
+    }
+
+    // Web Audio Synthesizer (Fotoğraf deklanşör / tetikleme geri bildirimi)
+    function playShutterSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(900, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(320, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch(e) {}
+    }
+
+    function triggerShutterFeedback(cam) {
+      if (!cam) return;
+      if (cam.flashEl) {
+        cam.flashEl.classList.add('flashing');
+        setTimeout(() => cam.flashEl.classList.remove('flashing'), 120);
+      }
+      playShutterSound();
+    }
 
     async function setupCameras() {
       const myToken = ++setupToken;
@@ -622,6 +854,8 @@
       });
       activeCameras = [];
       camerasGrid.innerHTML = '';
+      camerasGrid.className = 'cameras-grid';
+      document.querySelector('.left-col')?.classList.remove('has-multi-cam');
 
       try {
         const permStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -635,7 +869,12 @@
         if (cams.length === 0) { setStatus('Hiç kamera bulunamadı.', true); return; }
 
         setStatus(`${cams.length} kamera bulundu, bağlanılıyor…`);
+        camerasGrid.className = cams.length > 1 ? 'cameras-grid multi-cam' : 'cameras-grid';
+        const leftCol = document.querySelector('.left-col');
+        if (leftCol) leftCol.classList.toggle('has-multi-cam', cams.length > 1);
+
         cams.forEach((cam, index) => setupOneCamera(cam.deviceId, cam.label, index, cams.length));
+        updateCameraSelectionUI();
       } catch (err) {
         if (myToken !== setupToken) return;
         setStatus('Kamera hatası: ' + err.message, true);
@@ -654,6 +893,7 @@
         <div class="video-container">
           <video autoplay playsinline muted></video>
           <canvas></canvas>
+          <div class="shutter-flash"></div>
           <div class="video-overlay">
             <span class="live-badge"><span class="live-dot"></span> CANLI</span>
             <span class="rec-badge">
@@ -661,77 +901,68 @@
               REC <span class="rec-timer">00:00</span>
             </span>
           </div>
+          <div class="pedal-active-badge">🦶 Pedal Aktif</div>
         </div>
         <div class="cam-info">
           <div class="cam-name">${label || `Kamera ${index + 1}`}</div>
           <div class="cam-room">Oda: ${roomId}</div>
         </div>
         <div class="cam-controls">
-          <div class="mode-toggle">
-            <input type="radio" name="mode-${index}" id="mode-photo-${index}" value="photo" checked>
-            <label for="mode-photo-${index}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-              Fotoğraf
-            </label>
-            <input type="radio" name="mode-${index}" id="mode-video-${index}" value="video">
-            <label for="mode-video-${index}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-              Video
-            </label>
-          </div>
-          <button class="btn btn-green action-btn">
+          <button class="cam-btn btn-snap" title="Fotoğraf Çek (Pedal / Boşluk - Video kaydı devam ederken de çekebilir)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-            Yakala
+            <span>Fotoğraf Çek</span>
+            <span class="shortcut-hint">Boşluk</span>
+          </button>
+          <button class="cam-btn btn-rec btn-rec-start" title="Video Kaydını Başlat / Durdur (Pedal / R)">
+            <svg class="rec-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            <span class="rec-text">Kayıt Başlat</span>
+            <span class="shortcut-hint">R</span>
           </button>
         </div>
       `;
       camerasGrid.appendChild(card);
 
-      const videoEl     = card.querySelector('video');
-      const canvas      = card.querySelector('canvas');
-      const ctx         = canvas.getContext('2d');
-      const recBadge    = card.querySelector('.rec-badge');
-      const recTimer    = card.querySelector('.rec-timer');
-      const actionBtn   = card.querySelector('.action-btn');
-      const modeInputs  = card.querySelectorAll('input[type="radio"]');
+      const videoEl    = card.querySelector('video');
+      const canvas     = card.querySelector('canvas');
+      const ctx        = canvas.getContext('2d');
+      const flashEl    = card.querySelector('.shutter-flash');
+      const recBadge   = card.querySelector('.rec-badge');
+      const recTimer   = card.querySelector('.rec-timer');
+      const pedalBadge = card.querySelector('.pedal-active-badge');
+      const snapBtn    = card.querySelector('.btn-snap');
+      const recBtn     = card.querySelector('.btn-rec');
 
       const cam = {
         roomId, deviceId, stream: null, socket: null, sendInterval: null,
         isRecording: false, recordingStartedAt: null, timerInterval: null,
-        videoEl, canvas, ctx, recBadge, recTimer, actionBtn, modeInputs
+        videoEl, canvas, ctx, flashEl, recBadge, recTimer, pedalBadge, snapBtn, recBtn, cardEl: card
       };
       activeCameras.push(cam);
 
-      function getMode() {
-        return card.querySelector(`input[name="mode-${index}"]:checked`).value;
-      }
-
-      function setMode(mode) {
-        card.querySelector(`input[name="mode-${index}"][value="${mode}"]`).checked = true;
-      }
-
-      function updateActionBtn() {
-        if (cam.isRecording) return;
-        if (getMode() === 'photo') {
-          actionBtn.className = 'btn btn-primary action-btn';
-          actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Yakala`;
-        } else {
-          actionBtn.className = 'btn btn-green action-btn';
-          actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg> Kaydı Başlat`;
+      // Kart tıklandığında bu kamerayı pedal için aktif seç
+      card.addEventListener('click', (e) => {
+        const idx = activeCameras.indexOf(cam);
+        if (idx !== -1 && idx !== selectedCameraIndex) {
+          selectedCameraIndex = idx;
+          updateCameraSelectionUI();
         }
-      }
-
-      modeInputs.forEach(r => r.addEventListener('change', () => {
-        if (cam.isRecording) { setMode('video'); setStatus('Devam eden kaydı durdurmadan mod değiştiremezsiniz.', true); return; }
-        updateActionBtn();
-      }));
-
-      actionBtn.addEventListener('click', () => {
-        if (getMode() === 'photo') { takeSnapshot(cam); }
-        else { cam.isRecording ? stopRecording(cam) : startRecording(cam); }
       });
 
-      updateActionBtn();
+      // Fotoğraf çekme (Kayıt sürerken de KESİNTİSİZ çalışır!)
+      snapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedCameraIndex = activeCameras.indexOf(cam);
+        updateCameraSelectionUI();
+        takeSnapshot(cam, 'WEB_UI_BUTTON');
+      });
+
+      // Video kaydını başlat / durdur
+      recBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedCameraIndex = activeCameras.indexOf(cam);
+        updateCameraSelectionUI();
+        toggleRecording(cam, 'WEB_UI_BUTTON');
+      });
 
       // WebSocket
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -773,53 +1004,88 @@
       };
     }
 
-    // ── Snapshot ──────────────────────────────────────────
-    async function takeSnapshot(cam) {
-      setStatus(`Kare yakalanıyor (${cam.roomId})…`);
+    // ── Snapshot (Kayıt devam ederken de çekilebilir!) ────
+    async function takeSnapshot(cam, triggerSource = 'WEB_UI_BUTTON') {
+      if (!cam) return;
+      triggerShutterFeedback(cam);
+      const isRecNote = cam.isRecording ? ' (Video kaydı devam ediyor)' : '';
+      const prefix = triggerSource === 'FOOT_PEDAL' ? '🦶 Pedal: ' : '';
+      setStatus(`${prefix}Fotoğraf alınıyor (${cam.roomId})${isRecNote}…`);
+
       try {
         const res = await fetch(`/api/rooms/${cam.roomId}/capture`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
+          body: JSON.stringify({ triggerSource: triggerSource, ...readContextPayload() })
         });
-        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        if (!res.ok) {
+          const e = await res.json().catch(()=>({}));
+          setStatus('Hata: ' + (e.message || res.statusText), true);
+          return;
+        }
         const d = await res.json();
-        setStatus(`Kaydedildi — Id: ${d.id}, Dosya: ${d.filePath}`);
+        setStatus(`✓ ${prefix}Fotoğraf kaydedildi — Id: #${d.id}, Dosya: ${d.filePath}${isRecNote}`);
         loadCaptures();
-      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
+      } catch(e) {
+        setStatus('Bağlantı hatası: ' + e.message, true);
+      }
     }
 
     // ── Start recording ───────────────────────────────────
-    async function startRecording(cam) {
-      setStatus(`Video kaydı başlatılıyor (${cam.roomId})…`);
+    async function startRecording(cam, triggerSource = 'WEB_UI_BUTTON') {
+      if (!cam) return;
+      const prefix = triggerSource === 'FOOT_PEDAL' ? '🦶 Pedal: ' : '';
+      setStatus(`${prefix}Video kaydı başlatılıyor (${cam.roomId})…`);
       try {
         const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ triggerSource: 'WEB_UI_BUTTON', ...readContextPayload() })
+          body: JSON.stringify({ triggerSource: triggerSource, ...readContextPayload() })
         });
-        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        if (!res.ok) {
+          const e = await res.json().catch(()=>({}));
+          setStatus('Hata: ' + (e.message || res.statusText), true);
+          return;
+        }
         const d = await res.json();
         enterRecordingState(cam, new Date(d.startedAt));
-        setStatus(`Kayıt başladı — Id: ${d.id}`);
+        setStatus(`● ${prefix}Video kaydı başladı — Id: #${d.id} (Kayıt sırasında Boşluk tuşu/pedal ile fotoğraf çekebilirsiniz)`);
         loadCaptures();
-      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
+      } catch(e) {
+        setStatus('Bağlantı hatası: ' + e.message, true);
+      }
     }
 
     // ── Stop recording ────────────────────────────────────
     async function stopRecording(cam) {
+      if (!cam) return;
       setStatus(`Video kaydı durduruluyor (${cam.roomId})…`);
       try {
         const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/stop`, { method: 'POST' });
-        if (!res.ok) { const e = await res.json().catch(()=>({})); setStatus('Hata: '+(e.message||res.statusText), true); return; }
+        if (!res.ok) {
+          const e = await res.json().catch(()=>({}));
+          setStatus('Hata: ' + (e.message || res.statusText), true);
+          return;
+        }
         const d = await res.json();
         exitRecordingState(cam);
-        const sec = d.durationMs ? Math.round(d.durationMs/1000) : '?';
+        const sec = d.durationMs ? Math.round(d.durationMs / 1000) : '?';
         setStatus(d.verified === false
-          ? `⚠ Kayıt durduruldu (${sec}sn) ama dosya doğrulanamadı — Id: ${d.id}`
-          : `Kayıt durduruldu — ${sec}sn, Id: ${d.id}`);
+          ? `⚠ Kayıt durduruldu (${sec}sn) ama dosya doğrulanamadı — Id: #${d.id}`
+          : `✓ Video kaydı durduruldu — ${sec}sn, Id: #${d.id}`);
         loadCaptures();
-      } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
+      } catch(e) {
+        setStatus('Bağlantı hatası: ' + e.message, true);
+      }
+    }
+
+    function toggleRecording(cam, triggerSource = 'WEB_UI_BUTTON') {
+      if (!cam) return;
+      if (cam.isRecording) {
+        stopRecording(cam);
+      } else {
+        startRecording(cam, triggerSource);
+      }
     }
 
     // ── Recording state UI ────────────────────────────────
@@ -827,9 +1093,12 @@
       cam.isRecording = true;
       cam.recordingStartedAt = startedAt;
       cam.recBadge.style.display = 'inline-flex';
-      cam.actionBtn.className = 'btn btn-red action-btn';
-      cam.actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Kaydı Durdur`;
-      cam.modeInputs.forEach(r => r.disabled = true);
+
+      cam.recBtn.className = 'cam-btn btn-rec btn-rec-stop';
+      cam.recBtn.querySelector('.rec-text').textContent = 'Kaydı Durdur';
+      cam.recBtn.querySelector('.rec-icon').innerHTML = `<rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>`;
+
+      // snapBtn (Fotoğraf çek) düğmesi ASLA devre dışı bırakılmaz, kayıt sürerken de aktiftir!
       clearInterval(cam.timerInterval);
       cam.timerInterval = setInterval(() => updateTimer(cam), 500);
       updateTimer(cam);
@@ -839,12 +1108,12 @@
       cam.isRecording = false;
       cam.recordingStartedAt = null;
       cam.recBadge.style.display = 'none';
-      cam.modeInputs.forEach(r => r.disabled = false);
+
+      cam.recBtn.className = 'cam-btn btn-rec btn-rec-start';
+      cam.recBtn.querySelector('.rec-text').textContent = 'Kayıt Başlat';
+      cam.recBtn.querySelector('.rec-icon').innerHTML = `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>`;
+
       clearInterval(cam.timerInterval);
-      // Reset to photo mode button
-      const idx = activeCameras.indexOf(cam);
-      cam.actionBtn.className = 'btn btn-primary action-btn';
-      cam.actionBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Yakala`;
     }
 
     function updateTimer(cam) {
@@ -859,9 +1128,46 @@
         const d = await res.json();
         if (d.isRecording && d.capture) {
           enterRecordingState(cam, new Date(d.capture.capturedAt));
-          setStatus(`Devam eden kayıt bulundu (${cam.roomId}, Id: ${d.capture.id})`);
+          setStatus(`Devam eden kayıt bulundu (${cam.roomId}, Id: #${d.capture.id})`);
         }
       } catch {}
+    }
+
+    // ── DOKTOR AYAK PEDALI & KLAVYE DİNLEYİCİSİ ───────────
+    window.addEventListener('keydown', (e) => {
+      // Bir input, textarea veya seçim kutusuna yazı yazılıyorsa tuşları engelleme
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+        return;
+      }
+
+      const cam = getSelectedCam();
+      if (!cam) return;
+
+      // PEDAL 1 (Fotoğraf Çekimi): Boşluk (Space), F12, 'P' tuşu
+      // Video kaydı devam ederken de fotoğraf çeker!
+      if (e.code === 'Space' || e.key === ' ' || e.key === 'F12' || e.code === 'KeyP') {
+        e.preventDefault();
+        takeSnapshot(cam, 'FOOT_PEDAL');
+        return;
+      }
+
+      // PEDAL 2 (Video Başlat / Durdur): 'R' tuşu, Enter (input dışında), F9
+      if (e.code === 'KeyR' || e.key === 'Enter' || e.key === 'F9') {
+        e.preventDefault();
+        toggleRecording(cam, 'FOOT_PEDAL');
+        return;
+      }
+    });
+
+    // ── "Oluşturan" Alanını Hatırlama (localStorage) ─────
+    const creatorInput = document.getElementById('ctx-created-by');
+    if (creatorInput) {
+      const savedCreator = localStorage.getItem('endocapture_creator');
+      if (savedCreator) creatorInput.value = savedCreator;
+      creatorInput.addEventListener('input', () => {
+        localStorage.setItem('endocapture_creator', creatorInput.value.trim());
+      });
     }
 
     // ── Helpers ───────────────────────────────────────────
@@ -894,6 +1200,8 @@
       if (item.doctorName)    subs.push(item.doctorName);
       if (item.procedureType) subs.push(item.procedureType);
       if (item.roomName)      subs.push(item.roomName);
+      if (item.createdByName) subs.push(`<span class="creator-badge">👤 ${item.createdByName}</span>`);
+      if (item.triggerSource === 'FOOT_PEDAL') subs.push(`<span class="pedal-tag">🦶 Pedal</span>`);
       if (subs.length) lines.push(`<div class="context-sub">${subs.join(' · ')}</div>`);
       return lines.length ? lines.join('') : `<span style="color:var(--border)">—</span>`;
     }
