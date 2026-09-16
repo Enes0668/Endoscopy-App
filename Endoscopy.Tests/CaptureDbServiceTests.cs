@@ -445,4 +445,71 @@ public class CaptureDbServiceTests
         // FrameCount güncellenmeli.
         Assert.Equal(999, entity.FrameCount);
     }
+
+    // -----------------------------------------------------------------------
+    // VideoMarker Tests
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void AddMarker_GecerliCapture_MarkerEkler()
+    {
+        using var db = CreateDb();
+        var svc = CreateService(db);
+        var id = svc.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+
+        var marker = svc.AddMarker(id, 12500, "Polip");
+
+        Assert.NotNull(marker);
+        Assert.True(marker!.Id > 0);
+        Assert.Equal(id, marker.MediaCaptureId);
+        Assert.Equal(12500, marker.TimestampMs);
+        Assert.Equal("Polip", marker.Label);
+    }
+
+    [Fact]
+    public void AddMarker_GecersizCapture_NullDoner()
+    {
+        using var db = CreateDb();
+        var svc = CreateService(db);
+
+        var marker = svc.AddMarker(99999, 5000, "Polip");
+
+        Assert.Null(marker);
+    }
+
+    [Fact]
+    public void GetMarkers_ZamanaGoreSiraliDoner()
+    {
+        using var db = CreateDb();
+        var svc = CreateService(db);
+        var id = svc.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+
+        svc.AddMarker(id, 20000, "İkinci");
+        svc.AddMarker(id, 5000, "İlk");
+        svc.AddMarker(id, 10000, "Orta");
+
+        var list = svc.GetMarkers(id);
+
+        Assert.Equal(3, list.Count);
+        Assert.Equal(5000, list[0].TimestampMs);
+        Assert.Equal("İlk", list[0].Label);
+        Assert.Equal(10000, list[1].TimestampMs);
+        Assert.Equal(20000, list[2].TimestampMs);
+    }
+
+    [Fact]
+    public void DeleteMarker_Mevcutsa_SilerTrueDoner()
+    {
+        using var db = CreateDb();
+        var svc = CreateService(db);
+        var id = svc.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+        var marker = svc.AddMarker(id, 1000, "Test Marker")!;
+
+        var deleted = svc.DeleteMarker(marker.Id);
+        var list = svc.GetMarkers(id);
+
+        Assert.True(deleted);
+        Assert.Empty(list);
+    }
 }
+

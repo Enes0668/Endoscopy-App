@@ -311,6 +311,85 @@ public class CapturesControllerTests
     }
 
     // -----------------------------------------------------------------------
+    // Video Marker Controller Tests
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void AddLiveMarker_KayitYokken_400Doner()
+    {
+        var b = CreateController();
+        var result = b.Controller.AddLiveMarker("oda1", new MarkerRequest("Polip")) as BadRequestObjectResult;
+
+        Assert.NotNull(result);
+        Assert.Equal(400, result!.StatusCode);
+    }
+
+    [Fact]
+    public void AddLiveMarker_KayitVarken_200Doner()
+    {
+        var b = CreateController();
+        b.DbService.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN",
+            status: CaptureStatus.Recording, context: new CaptureContext(RoomName: "oda1"));
+
+        var result = b.Controller.AddLiveMarker("oda1", new MarkerRequest("Kanama")) as OkObjectResult;
+
+        Assert.NotNull(result);
+        Assert.Equal(200, result!.StatusCode);
+    }
+
+    [Fact]
+    public void AddCaptureMarker_VideoOlmayanId_400Doner()
+    {
+        var b = CreateController();
+        var id = b.DbService.InsertCapture(CaptureType.Photo, "/s/f.jpg", DateTimeOffset.UtcNow, "BTN");
+
+        var result = b.Controller.AddCaptureMarker(id, new MarkerRequest("Polip", 5000)) as BadRequestObjectResult;
+
+        Assert.NotNull(result);
+        Assert.Equal(400, result!.StatusCode);
+    }
+
+    [Fact]
+    public void AddCaptureMarker_GecerliVideoya_200Doner()
+    {
+        var b = CreateController();
+        var id = b.DbService.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+
+        var result = b.Controller.AddCaptureMarker(id, new MarkerRequest("Polip", 5000)) as OkObjectResult;
+
+        Assert.NotNull(result);
+        Assert.Equal(200, result!.StatusCode);
+    }
+
+    [Fact]
+    public void GetCaptureMarkers_ListeyiDoner()
+    {
+        var b = CreateController();
+        var id = b.DbService.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+        b.DbService.AddMarker(id, 1000, "M1");
+        b.DbService.AddMarker(id, 2000, "M2");
+
+        var result = b.Controller.GetCaptureMarkers(id) as OkObjectResult;
+        var list = result!.Value as List<VideoMarkerDto>;
+
+        Assert.NotNull(list);
+        Assert.Equal(2, list!.Count);
+    }
+
+    [Fact]
+    public void DeleteMarker_MevcutId_200Doner()
+    {
+        var b = CreateController();
+        var id = b.DbService.InsertCapture(CaptureType.Video, "/s/v.mp4", DateTimeOffset.UtcNow, "BTN");
+        var m = b.DbService.AddMarker(id, 1000, "M1")!;
+
+        var result = b.Controller.DeleteMarker(m.Id) as OkObjectResult;
+
+        Assert.NotNull(result);
+        Assert.Equal(200, result!.StatusCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Yardımcı reflection metodları
     // -----------------------------------------------------------------------
 

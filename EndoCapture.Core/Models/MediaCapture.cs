@@ -117,4 +117,7 @@ public class MediaCapture
 
     /// <summary>Kaydı üreten bilgisayarın aktif ağ adaptörünün MAC adresi.</summary>
     public string? LocalMacAddress { get; set; }
+
+    /// <summary>Bu video kaydına ait işaretler / bookmark'lar.</summary>
+    public ICollection<VideoMarker> Markers { get; set; } = new List<VideoMarker>();
 }

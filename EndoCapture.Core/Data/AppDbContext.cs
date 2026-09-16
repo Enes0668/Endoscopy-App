@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<MediaCapture> MediaCaptures => Set<MediaCapture>();
+    public DbSet<VideoMarker> VideoMarkers => Set<VideoMarker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,19 @@ public class AppDbContext : DbContext
             // GetCaptures her çağrıda "WHERE IsActive" filtresi uyguluyor —
             // listeleme en sık çalışan sorgu olduğu için bu index'in kazancı var.
             entity.HasIndex(e => e.IsActive);
+
+            entity.HasMany(e => e.Markers)
+                .WithOne(m => m.MediaCapture)
+                .HasForeignKey(m => m.MediaCaptureId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VideoMarker>(entity =>
+        {
+            entity.ToTable("VideoMarkers");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.MediaCaptureId);
         });
     }
 }

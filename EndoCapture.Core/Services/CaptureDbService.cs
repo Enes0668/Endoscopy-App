@@ -293,4 +293,55 @@ public class CaptureDbService
 
         return staleRows.Count;
     }
+
+    /// <summary>Bir video kaydına zaman damgalı işaret/marker ekler.</summary>
+    public VideoMarker? AddMarker(long mediaCaptureId, long timestampMs, string label)
+    {
+        var capture = _db.MediaCaptures.Find(mediaCaptureId);
+        if (capture == null) return null;
+
+        var marker = new VideoMarker
+        {
+            MediaCaptureId = mediaCaptureId,
+            TimestampMs = Math.Max(0, timestampMs),
+            Label = string.IsNullOrWhiteSpace(label) ? "İşaret" : label.Trim(),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.VideoMarkers.Add(marker);
+        _db.SaveChanges();
+        _logger.LogInformation("Video marker eklendi: Id={Id}, CaptureId={CaptureId}, Zaman={TimestampMs}ms, Etiket={Label}",
+            marker.Id, mediaCaptureId, timestampMs, marker.Label);
+        return marker;
+    }
+
+    /// <summary>Bir videoya ait tüm marker'ları zamana göre sıralı döner.</summary>
+    public List<VideoMarkerDto> GetMarkers(long mediaCaptureId)
+    {
+        return _db.VideoMarkers
+            .Where(m => m.MediaCaptureId == mediaCaptureId)
+            .OrderBy(m => m.TimestampMs)
+            .Select(m => new VideoMarkerDto(m.Id, m.MediaCaptureId, m.TimestampMs, m.Label, m.CreatedAt))
+            .ToList();
+    }
+
+    /// <summary>Belirtilen marker'ı siler.</summary>
+    public bool DeleteMarker(long markerId)
+    {
+        var marker = _db.VideoMarkers.Find(markerId);
+        if (marker == null) return false;
+
+        _db.VideoMarkers.Remove(marker);
+        _db.SaveChanges();
+        _logger.LogInformation("Video marker silindi: Id={Id}", markerId);
+        return true;
+    }
 }
+
+public record VideoMarkerDto(
+    long Id,
+    long MediaCaptureId,
+    long TimestampMs,
+    string Label,
+    DateTimeOffset CreatedAt);
+

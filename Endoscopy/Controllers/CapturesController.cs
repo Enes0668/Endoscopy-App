@@ -19,6 +19,8 @@ public record CaptureRequest(
 
 public record AnnotateRequest(string ImageBase64, string? Label = null);
 
+public record MarkerRequest(string? Label = null, long? TimestampMs = null);
+
 [ApiController]
 [Route("api")]
 public class CapturesController : ControllerBase
@@ -419,5 +421,98 @@ public class CapturesController : ControllerBase
             _logger.LogError(ex, "İşaretli fotoğraf kaydedilemedi: Id={Id}", id);
             return StatusCode(500, new { message = "Fotoğraf kaydedilirken sunucu hatası oluştu: " + ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Devam eden video kaydına anlık zaman damgalı marker/işaret ekler.
+    /// Kayıt sürerken pedal, klavye kısayolu (M) veya arayüz butonuyla çağrılır.
+    /// </summary>
+    [HttpPost("rooms/{roomId}/capture/video/marker")]
+    public IActionResult AddLiveMarker(string roomId, [FromBody] MarkerRequest? request)
+    {
+        var recording = _db.GetActiveRecording(roomId);
+        if (recording == null)
+        {
+            return BadRequest(new { message = $"'{roomId}' odasında devam eden aktif bir video kaydı bulunamadı." });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var elapsedMs = Math.Max(0, (long)(now - recording.CapturedAt).TotalMilliseconds);
+        var label = string.IsNullOrWhiteSpace(request?.Label) ? "Önemli Bulgu" : request.Label.Trim();
+
+        var marker = _db.AddMarker(recording.Id, elapsedMs, label);
+        if (marker == null)
+        {
+            return StatusCode(500, new { message = "Marker kaydedilemedi." });
+        }
+
+        return Ok(new
+        {
+            id = marker.Id,
+            mediaCaptureId = marker.MediaCaptureId,
+            timestampMs = marker.TimestampMs,
+            label = marker.Label,
+            createdAt = marker.CreatedAt
+        });
+    }
+
+    /// <summary>
+    /// Tamamlanmış veya izlenmekte olan bir video kaydına belirli bir zaman damgasıyla marker ekler.
+    /// </summary>
+    [HttpPost("captures/{id}/markers")]
+    public IActionResult AddCaptureMarker(long id, [FromBody] MarkerRequest request)
+    {
+        var capture = _db.GetById(id);
+        if (capture == null)
+        {
+            return NotFound(new { message = $"Id={id} olan video kaydı bulunamadı." });
+        }
+
+        if (capture.CaptureType != CaptureType.Video)
+        {
+            return BadRequest(new { message = "Sadece video kayıtlarına marker eklenebilir." });
+        }
+
+        var timestampMs = request.TimestampMs ?? 0;
+        var label = string.IsNullOrWhiteSpace(request.Label) ? "İşaret" : request.Label.Trim();
+
+        var marker = _db.AddMarker(id, timestampMs, label);
+        if (marker == null)
+        {
+            return StatusCode(500, new { message = "Marker eklenemedi." });
+        }
+
+        return Ok(new
+        {
+            id = marker.Id,
+            mediaCaptureId = marker.MediaCaptureId,
+            timestampMs = marker.TimestampMs,
+            label = marker.Label,
+            createdAt = marker.CreatedAt
+        });
+    }
+
+    /// <summary>
+    /// Bir video kaydına ait tüm zaman damgalı marker'ları listeler.
+    /// </summary>
+    [HttpGet("captures/{id}/markers")]
+    public IActionResult GetCaptureMarkers(long id)
+    {
+        var markers = _db.GetMarkers(id);
+        return Ok(markers);
+    }
+
+    /// <summary>
+    /// Bir marker'ı kimliğine göre siler.
+    /// </summary>
+    [HttpDelete("markers/{markerId}")]
+    public IActionResult DeleteMarker(long markerId)
+    {
+        var deleted = _db.DeleteMarker(markerId);
+        if (!deleted)
+        {
+            return NotFound(new { message = $"Marker Id={markerId} bulunamadı." });
+        }
+        return Ok(new { markerId, message = "Marker silindi." });
     }
 }

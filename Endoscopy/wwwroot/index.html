@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="report-generator.css">
   <link rel="stylesheet" href="image-annotator.css">
+  <link rel="stylesheet" href="video-marker.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -686,7 +687,7 @@
     <!-- ── DOKTOR AYAK PEDALI & KISAYOL GÖSTERGESİ ── -->
     <div class="pedal-indicator" title="USB Ayak Pedalı veya Klavye Kısayolları Aktiftir">
       <span class="pedal-icon" style="font-size:11px;font-weight:700;background:rgba(59,130,246,.25);color:#93c5fd;padding:2px 6px;border-radius:4px;">PEDAL</span>
-      <span><strong>Kısayol:</strong> <kbd>Boşluk / F12</kbd> Fotoğraf &nbsp;|&nbsp; <kbd>R / Enter</kbd> Video</span>
+      <span><strong>Kısayol:</strong> <kbd>Boşluk / F12</kbd> Fotoğraf &nbsp;|&nbsp; <kbd>R / Enter</kbd> Video &nbsp;|&nbsp; <kbd>M</kbd> İşaretle (Marker)</span>
     </div>
 
     <span class="header-status" id="status">Başlatılıyor…</span>
@@ -930,6 +931,11 @@
             <span class="rec-text">Kayıt Başlat</span>
             <span class="shortcut-hint">R</span>
           </button>
+          <button class="cam-btn btn-marker" title="Önemli Anı İşaretle / Bookmark (Kayıt sürerken M tuşu)" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>İşaretle</span>
+            <span class="shortcut-hint">M</span>
+          </button>
         </div>
       `;
       camerasGrid.appendChild(card);
@@ -943,11 +949,12 @@
       const pedalBadge = card.querySelector('.pedal-active-badge');
       const snapBtn    = card.querySelector('.btn-snap');
       const recBtn     = card.querySelector('.btn-rec');
+      const markerBtn  = card.querySelector('.btn-marker');
 
       const cam = {
         roomId, deviceId, stream: null, socket: null, sendInterval: null,
         isRecording: false, recordingStartedAt: null, timerInterval: null,
-        videoEl, canvas, ctx, flashEl, recBadge, recTimer, pedalBadge, snapBtn, recBtn, cardEl: card
+        videoEl, canvas, ctx, flashEl, recBadge, recTimer, pedalBadge, snapBtn, recBtn, markerBtn, cardEl: card
       };
       activeCameras.push(cam);
 
@@ -974,6 +981,14 @@
         selectedCameraIndex = activeCameras.indexOf(cam);
         updateCameraSelectionUI();
         toggleRecording(cam, 'WEB_UI_BUTTON');
+      });
+
+      // Canlı Video Marker (İşaret) Ekleme
+      markerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedCameraIndex = activeCameras.indexOf(cam);
+        updateCameraSelectionUI();
+        addLiveMarker(cam, 'Önemli Bulgu');
       });
 
       // WebSocket
@@ -1110,6 +1125,10 @@
       cam.recBtn.querySelector('.rec-text').textContent = 'Kaydı Durdur';
       cam.recBtn.querySelector('.rec-icon').innerHTML = `<rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>`;
 
+      if (cam.markerBtn) {
+        cam.markerBtn.disabled = false;
+      }
+
       // snapBtn (Fotoğraf çek) düğmesi ASLA devre dışı bırakılmaz, kayıt sürerken de aktiftir!
       clearInterval(cam.timerInterval);
       cam.timerInterval = setInterval(() => updateTimer(cam), 500);
@@ -1124,6 +1143,10 @@
       cam.recBtn.className = 'cam-btn btn-rec btn-rec-start';
       cam.recBtn.querySelector('.rec-text').textContent = 'Kayıt Başlat';
       cam.recBtn.querySelector('.rec-icon').innerHTML = `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>`;
+
+      if (cam.markerBtn) {
+        cam.markerBtn.disabled = true;
+      }
 
       clearInterval(cam.timerInterval);
     }
@@ -1143,6 +1166,35 @@
           setStatus(`Devam eden kayıt bulundu (${cam.roomId}, Id: #${d.capture.id})`);
         }
       } catch {}
+    }
+
+    // ── Live Video Marker ────────────────────────────────
+    async function addLiveMarker(cam, defaultLabel = 'Önemli Bulgu') {
+      if (!cam || !cam.isRecording) {
+        setStatus('İşaret eklemek için aktif bir video kaydı olmalıdır.', true);
+        return;
+      }
+      playShutterSound();
+      setStatus(`Zaman damgalı işaret ekleniyor (${cam.roomId})…`);
+      try {
+        const res = await fetch(`/api/rooms/${cam.roomId}/capture/video/marker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: defaultLabel })
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(()=>({}));
+          setStatus('Marker hatası: ' + (e.message || res.statusText), true);
+          return;
+        }
+        const d = await res.json();
+        const sec = Math.round(d.timestampMs / 1000);
+        const m = String(Math.floor(sec/60)).padStart(2,'0');
+        const s = String(sec%60).padStart(2,'0');
+        setStatus(`Video işareti eklendi: [${m}:${s}] ${d.label} (Id: #${d.id})`);
+      } catch(e) {
+        setStatus('Marker bağlantı hatası: ' + e.message, true);
+      }
     }
 
     // ── DOKTOR AYAK PEDALI & KLAVYE DİNLEYİCİSİ ───────────
@@ -1168,6 +1220,15 @@
       if (e.code === 'KeyR' || e.key === 'Enter' || e.key === 'F9') {
         e.preventDefault();
         toggleRecording(cam, 'FOOT_PEDAL');
+        return;
+      }
+
+      // PEDAL 3 / KISAYOL (Video Marker): 'M' tuşu
+      if (e.code === 'KeyM' || e.key === 'm' || e.key === 'M') {
+        if (cam.isRecording) {
+          e.preventDefault();
+          addLiveMarker(cam, 'Önemli Bulgu');
+        }
         return;
       }
     });
@@ -1277,6 +1338,11 @@
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </button>`
             : '';
+          const mrkBtn = (!rec && item.captureType === 'video')
+            ? `<button class="btn btn-ghost btn-sm" onclick="openMarkerForItem(${item.id})" title="Zaman damgalı işaretleri (marker) görüntüle ve düzenle">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              </button>`
+            : '';
 
           tbody.innerHTML += `
             <tr>
@@ -1286,7 +1352,7 @@
               <td>${contextCell(item)}</td>
               <td>${durationCell(item)}</td>
               <td style="color:var(--muted);font-size:12px;white-space:nowrap">${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
-              <td><div class="actions-cell">${annBtn}${refBtn}${delBtn}</div></td>
+              <td><div class="actions-cell">${annBtn}${mrkBtn}${refBtn}${delBtn}</div></td>
             </tr>`;
         });
       } catch(e) { setStatus('Kayıtlar yüklenemedi: '+e.message, true); }
@@ -1354,11 +1420,21 @@
       }
     }
 
+    // ── Open Video Marker ─────────────────────────────────
+    function openMarkerForItem(id) {
+      const item = (window.capturesData || []).find(c => c.id === id);
+      if (!item) return;
+      if (window.VideoMarker) {
+        window.VideoMarker.openForCapture(item);
+      }
+    }
+
     // ── Init ──────────────────────────────────────────────
     setupCameras();
     loadCaptures();
   </script>
   <script src="html2pdf.bundle.min.js"></script>
+  <script src="video-marker.js"></script>
   <script src="report-generator.js"></script>
   <script src="image-annotator.js"></script>
 </body>

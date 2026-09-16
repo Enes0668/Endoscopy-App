@@ -30,6 +30,7 @@
   </style>
   <link rel="stylesheet" href="report-generator.css">
   <link rel="stylesheet" href="image-annotator.css">
+  <link rel="stylesheet" href="video-marker.css">
 </head>
 <body>
   <h2>Admin Görünümü</h2>
@@ -176,6 +177,9 @@
         const annotateBtn = (!isRecordingRow && item.captureType === 'photo')
           ? `<button style="background:#0284c7;padding:6px 10px;font-size:12px;margin:0 4px 0 0;" onclick="openAnnotatorForAdmin(${item.id})" title="Fotoğraf üzerine çizim ve ölçüm yap">Çizim</button>`
           : '';
+        const markerBtn = (!isRecordingRow && item.captureType === 'video')
+          ? `<button style="background:#f59e0b;color:#1e293b;font-weight:600;padding:6px 10px;font-size:12px;margin:0 4px 0 0;" onclick="openMarkerForAdmin(${item.id})" title="Zaman damgalı işaretleri (marker) görüntüle ve düzenle">İşaretler</button>`
+          : '';
 
         const row = `
           <tr>
@@ -187,11 +191,19 @@
             <td>${item.triggerSource === 'FOOT_PEDAL' ? '<span title="Doktor Ayak Pedalı">Ayak Pedalı</span>' : item.triggerSource}</td>
             <td>${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
             <td>${durationOrStatus(item)}</td>
-            <td>${annotateBtn}${reportBtn}${refreshBtn}${deleteBtn}</td>
+            <td>${annotateBtn}${markerBtn}${reportBtn}${refreshBtn}${deleteBtn}</td>
           </tr>
         `;
         tbody.innerHTML += row;
       });
+    }
+
+    function openMarkerForAdmin(id) {
+      const item = (window.adminCaptures || []).find(c => c.id === id);
+      if (!item) return;
+      if (window.VideoMarker) {
+        window.VideoMarker.openForCapture(item);
+      }
     }
 
     function openAnnotatorForAdmin(id) {
@@ -286,6 +298,7 @@
     loadCaptures();
   </script>
   <script src="html2pdf.bundle.min.js"></script>
+  <script src="video-marker.js"></script>
   <script src="report-generator.js"></script>
   <script src="image-annotator.js"></script>
 </body>

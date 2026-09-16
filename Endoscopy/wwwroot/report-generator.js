@@ -177,7 +177,13 @@
                   <input id="rep-inp-indication" type="text" placeholder="İşlem nedeni ve ön tanı..." />
                 </div>
                 <div class="report-field full-width" style="margin-bottom: 8px;">
-                  <label>Endoskopik Bulgular</label>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <label style="margin:0;">Endoskopik Bulgular</label>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-import-video-markers" onclick="MedicalReport.importVideoMarkersToFindings()" style="font-size:11px;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;color:#f59e0b;" title="Bu hastaya/odaya ait videolardaki zaman damgalı işaretleri bulgulara ekle">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      Video İşaretlerini Aktar
+                    </button>
+                  </div>
                   <textarea id="rep-inp-findings" rows="4" placeholder="Organ ve mukoza bulguları..."></textarea>
                 </div>
                 <div class="report-field full-width" style="margin-bottom: 8px;">
@@ -618,6 +624,58 @@
         btn.disabled = false;
         btn.innerHTML = originalText;
         window.print();
+      }
+    }
+
+    async importVideoMarkersToFindings() {
+      // Mevcut hastaya/odaya ait videoları bul
+      const videos = (window.capturesData || window.adminCaptures || []).filter(c => c.captureType === 'video');
+      if (videos.length === 0) {
+        alert('Aktarılacak video kaydı bulunamadı.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-import-video-markers');
+      if (btn) btn.textContent = 'Aktarılıyor…';
+
+      try {
+        const markerLines = [];
+        for (const v of videos) {
+          const res = await fetch(`/api/captures/${v.id}/markers`);
+          if (res.ok) {
+            const markers = await res.json();
+            if (markers.length > 0) {
+              const videoTitle = `Video #${v.id} (${v.roomName || 'Oda'})`;
+              markerLines.push(`[${videoTitle} - Zaman Damgalı Bulgular]:`);
+              markers.forEach(m => {
+                const totalSec = Math.round(m.timestampMs / 1000);
+                const min = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                const sec = String(totalSec % 60).padStart(2, '0');
+                markerLines.push(`  - [${min}:${sec}] ${m.label}`);
+              });
+            }
+          }
+        }
+
+        if (markerLines.length === 0) {
+          alert('Videolarda henüz kayıtlı bir işaret/marker bulunamadı.');
+          if (btn) btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Video İşaretlerini Aktar`;
+          return;
+        }
+
+        const findingsTextarea = document.getElementById('rep-inp-findings');
+        const existingVal = findingsTextarea.value.trim();
+        const appendText = markerLines.join('\n');
+
+        findingsTextarea.value = existingVal ? `${existingVal}\n\n${appendText}` : appendText;
+
+        const previewFindings = document.getElementById('sheet-preview-findings');
+        if (previewFindings) previewFindings.textContent = findingsTextarea.value;
+
+        if (btn) btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Aktarıldı (${markerLines.length - 1})`;
+      } catch (err) {
+        alert('İşaretler aktarılırken hata oluştu: ' + err.message);
+        if (btn) btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Video İşaretlerini Aktar`;
       }
     }
 
