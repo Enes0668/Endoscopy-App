@@ -20,8 +20,38 @@ kaydeden, PostgreSQL veritabanına yazan bir ASP.NET Core uygulaması.
   değişmez (düz `oda1`).
 - Fotoğraf/video kayıtları `MediaCaptures` tablosuna (PostgreSQL, EF Core ile)
   yazılır; hangi odadan geldiği `RoomName` alanıyla ayırt edilir.
+- **Video kayıtları içinde zaman damgalı işaretler (marker/bookmark)** `VideoMarkers`
+  tablosuna ayrı olarak yazılır; her marker bir `MediaCapture`'a bağlıdır.
 - Kimlik doğrulama (login) **yok** — oda ekranı, kendi oda kimliğini serbestçe
   girer. Bu bilinçli bir tercih (bkz. "Bilinen kısıtlar").
+
+## Özellikler
+
+### 📹 Video Kayıt & Fotoğraf
+- Birden fazla odadan eş zamanlı kayıt
+- Kayıt sürerken kesintisiz fotoğraf çekme
+- Codec tespiti ve otomatik metadata yenileme
+- Soft-delete ile kayıt yönetimi
+
+### 🔖 Video İçi İşaretleme (VideoMarker)
+- Video oynatılırken istenen ana **zaman damgalı marker** ekleme
+- Hazır klinik etiketler: `Polip`, `Kanama Odağı`, `Biyopsi Alındı`, `Z Çizgisi`,
+  `Eritem / Gastrit`, `Ülser`, `Retrofleksiyon`, `Çekum / İleoçekal Valv`,
+  `Polipektomi`, `Divertikül`
+- Özel metin notu ekleme desteği
+- Zaman çizelgesi (timeline) üzerinde pin gösterimi — tıklayarak o ana atlama
+- Markerlar `VideoMarkers` tablosuna kalıcı olarak kaydedilir
+
+### 🖊️ Fotoğraf Üzerine Çizim & Ölçüm (ImageAnnotator)
+- Fotoğraf üzerine çizgi, daire, dikdörtgen, ok ve serbest çizim araçları
+- Ölçüm aracı (px cinsinden mesafe/boyut)
+- Metin etiketleme
+
+### 📄 Tıbbi Rapor Oluşturucu
+- Hasta bilgileri, bulgular ve tanı alanlarıyla yapılandırılmış rapor şablonu
+- **Video markerlarını bulgulara otomatik aktarma** — bir prosedüre ait tüm
+  video kayıtlarındaki zaman damgalı işaretler tek tıkla bulgular bölümüne eklenir
+- PDF olarak dışa aktarma (`html2pdf`)
 
 ## Gereksinimler
 
@@ -85,7 +115,7 @@ dotnet test
 
 | Adres | Ne işe yarar |
 |---|---|
-| `/` (`index.html`) | Bir odanın ana ekranı — sayfa açılışında o bilgisayardaki **tüm kameraları otomatik bulur** (dahili webcam, ikinci bir USB kamera, OBS sanal kamera vb.), her biri için ayrı bir kart (canlı önizleme + foto/video kontrolü) açar, WebSocket ile gönderir, **sadece kendi odasının** (ve varsa alt-kameralarının) kayıtlarını listeler. |
+| `/` (`index.html`) | Bir odanın ana ekranı — sayfa açılışında o bilgisayardaki **tüm kameraları otomatik bulur** (dahili webcam, ikinci bir USB kamera, OBS sanal kamera vb.), her biri için ayrı bir kart (canlı önizleme + foto/video kontrolü) açar, WebSocket ile gönderir, **sadece kendi odasının** (ve varsa alt-kameralarının) kayıtlarını listeler. Video kayıtları için 🔖 marker butonu, fotoğraflar için ✏️ çizim butonu vardır. |
 | `/admin.html` | **Tüm odaların** kayıtlarını (filtresiz, ya da istersen tek bir odaya daraltarak) gösteren yönetici görünümü. |
 | `/camera-ws-test.html` | WebSocket/kamera akışını izole test etmek için bağımsız test sayfası. |
 | `/multi-camera-test.html` | Çoklu kamera senaryosunu (manuel seçim ile) test etmek için ayrı sayfa. |
@@ -122,10 +152,15 @@ Oda bazlı (hepsi `{roomId}` alır, örn. `oda1`):
 - `GET /api/rooms/{roomId}/capture/video/status` — kayıt durumu
 - `GET /api/rooms/{roomId}/video-feed` — canlı MJPEG önizleme
 
-Oda'dan bağımsız:
+Kayıt bazlı:
 - `GET /api/captures?roomId=...` — kayıt listesi (`roomId` verilmezse tüm odalar; verilirse o oda ile onun `-cam1`, `-cam2` gibi alt-kameralarının kayıtları birlikte döner)
 - `DELETE /api/captures/{id}` — soft-delete
 - `POST /api/captures/{id}/refresh-metadata` — dosyadan metadata'yı tazele
+
+Marker (Video İşaret) bazlı:
+- `GET /api/captures/{id}/markers` — bir video kaydına ait tüm işaretleri listele
+- `POST /api/captures/{id}/markers` — yeni zaman damgalı işaret ekle `{ label, timestampMs }`
+- `DELETE /api/markers/{markerId}` — işareti sil
 
 WebSocket (API değil, ham bağlantı):
 - `ws(s)://.../ws-camera/{roomId}` — tarayıcının kamera karelerini bu odaya akıttığı yer
@@ -133,24 +168,30 @@ WebSocket (API değil, ham bağlantı):
 ## Proje yapısı
 
 ```
+EndoCapture.Core/
+├── Data/
+│   └── AppDbContext.cs            # EF Core context (MediaCaptures + VideoMarkers)
+├── Migrations/                    # EF Core migration dosyaları
+├── Models/
+│   ├── MediaCapture.cs            # Fotoğraf/video kayıt entity'si
+│   ├── VideoMarker.cs             # Video içi zaman damgalı işaret entity'si
+│   └── Enums.cs                   # CaptureType, CaptureStatus vb.
+└── Services/
+    └── CaptureDbService.cs        # Veritabanı servis katmanı (capture + marker CRUD)
+
 Endoscopy/
 ├── Controllers/
-│   └── CapturesController.cs     # Tüm HTTP endpoint'leri
-├── Data/
-│   └── AppDbContext.cs            # EF Core context
-├── Models/
-│   └── MediaCapture.cs            # Veritabanı entity'si
-├── Services/
-│   ├── CameraSession.cs           # Tek bir odanın kamera/kayıt oturumu
-│   ├── CameraSessionManager.cs    # Tüm oturumların merkezi yöneticisi
-│   ├── CaptureDbService.cs        # Veritabanı servis katmanı
-│   ├── CodecDetector.cs           # Video codec tespiti ve önbellekleme
-│   ├── DeviceIdentityService.cs   # Makine adı/IP/MAC tespiti
-│   ├── FileIdentityTagger.cs      # Dosyaya kimlik yazma (TagLibSharp)
-│   └── VideoFileMetadataReader.cs # Video dosyasından metadata okuma
+│   └── CapturesController.cs     # Tüm HTTP endpoint'leri (capture + marker API)
 ├── wwwroot/
 │   ├── index.html                 # Ana oda ekranı (dark, modern UI)
 │   ├── admin.html                 # Yönetici kayıt listesi
+│   ├── video-marker.js            # Video içi işaretleme motoru
+│   ├── video-marker.css           # Marker modal stilleri
+│   ├── image-annotator.js         # Fotoğraf üzerine çizim & ölçüm aracı
+│   ├── image-annotator.css        # Annotator stilleri
+│   ├── report-generator.js        # Tıbbi rapor oluşturucu (PDF dışa aktarma)
+│   ├── report-generator.css       # Rapor stilleri
+│   ├── html2pdf.bundle.min.js     # PDF dışa aktarma kütüphanesi
 │   ├── camera-ws-test.html        # Tekli kamera test sayfası
 │   └── multi-camera-test.html     # Çoklu kamera test sayfası
 └── Program.cs                     # Uygulama başlangıcı, WebSocket handler
