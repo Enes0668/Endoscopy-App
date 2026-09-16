@@ -10,5 +10,7 @@ appsettings.Development.json
 appsettings.Production.json
 .claude/
 
-
+# NuGet paket çıktısı
 nupkgs/
+*.nupkg
+*.snupkg
