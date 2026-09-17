@@ -3,12 +3,18 @@ name: Publish EndoCapture.Core to GitHub Packages
 on:
   push:
     tags:
-      - 'v*'          # Sadece "v1.0.0" gibi tag push'larında tetiklenir
-  workflow_dispatch:  # Elle de çalıştırılabilir
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: 'Yayınlanacak paket sürümü, örneğin 1.2.1'
+        required: true
+        type: string
 
 jobs:
   publish:
-    runs-on: windows-latest  # OpenCvSharp4.runtime.win sadece Windows DLL içerir
+    runs-on: windows-latest
 
     permissions:
       contents: read
@@ -22,13 +28,35 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-          # source-url KULLANMIYORUZ — nuget.config zaten "github" kaynağını
-          # tanımlıyor, tekrar eklemeye çalışmak "already exists" hatasına yol açıyor.
+
+      - name: Paket sürümünü belirle
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.package_version }}"
+
+          # Tag ile çalışıyorsa: v1.2.1 -> 1.2.1
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "${{ github.ref_name }}"
+
+            if ($version.StartsWith("v")) {
+              $version = $version.Substring(1)
+            }
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+([\-+].+)?$') {
+            throw "Geçersiz paket sürümü: $version"
+          }
+
+          Write-Host "Yayınlanacak paket sürümü: $version"
+          "PACKAGE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: GitHub Packages kimlik doğrulaması
-        # nuget.config'deki mevcut "github" kaynağının üzerine token yaz.
-        # "add source" değil "update source" — kaynak zaten var, sadece credentials ekliyoruz.
-        run: dotnet nuget update source github --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
+        shell: pwsh
+        run: |
+          dotnet nuget update source github `
+            --username "${{ github.actor }}" `
+            --password "${{ secrets.GITHUB_TOKEN }}" `
+            --store-password-in-clear-text
 
       - name: Restore
         run: dotnet restore EndoCapture.Core/EndoCapture.Core.csproj
@@ -40,11 +68,51 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: Pack
-        run: dotnet pack EndoCapture.Core/EndoCapture.Core.csproj --configuration Release --output nupkgs
+        shell: pwsh
+        run: |
+          dotnet pack EndoCapture.Core/EndoCapture.Core.csproj `
+            --configuration Release `
+            --output nupkgs `
+            --no-build `
+            -p:PackageVersion=$env:PACKAGE_VERSION
+
+      - name: Paket dosyasını doğrula
+        shell: pwsh
+        run: |
+          $packages = @(
+            Get-ChildItem -Path nupkgs -Filter "EndoCapture.Core.*.nupkg" |
+            Where-Object { $_.Name -notlike "*.symbols.nupkg" }
+          )
+
+          if ($packages.Count -ne 1) {
+            Write-Error "Beklenen tek paket yerine $($packages.Count) paket bulundu."
+            Get-ChildItem -Path nupkgs
+            exit 1
+          }
+
+          $expectedName = "EndoCapture.Core.$env:PACKAGE_VERSION.nupkg"
+
+          if ($packages[0].Name -ne $expectedName) {
+            Write-Error "Beklenen paket: $expectedName"
+            Write-Error "Bulunan paket: $($packages[0].Name)"
+            exit 1
+          }
+
+          Write-Host "Hazırlanan paket: $($packages[0].FullName)"
 
       - name: Push to GitHub Packages
+        shell: pwsh
         run: |
-          $pkg = Get-ChildItem -Path nupkgs -Filter "*.nupkg" | Select-Object -First 1
-          if (-not $pkg) { Write-Error "nupkgs/ klasöründe .nupkg bulunamadı!"; dir nupkgs; exit 1 }
-          Write-Host "Yükleniyor: $($pkg.FullName)"
-          dotnet nuget push $pkg.FullName --source github --skip-duplicate
+          $pkg = Get-ChildItem -Path nupkgs -Filter "EndoCapture.Core.$env:PACKAGE_VERSION.nupkg"
+
+          if (-not $pkg) {
+            Write-Error "Paket bulunamadı."
+            exit 1
+          }
+
+          Write-Host "GitHub Packages'a yükleniyor: $($pkg.FullName)"
+
+          dotnet nuget push $pkg.FullName `
+            --source github `
+            --api-key "${{ secrets.GITHUB_TOKEN }}" `
+            --skip-duplicate
