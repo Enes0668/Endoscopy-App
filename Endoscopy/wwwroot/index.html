@@ -6,7 +6,7 @@
   <title>EndoCapture — Endoskopi Kayıt Sistemi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="report-generator.css">
+  <link rel="stylesheet" href="report-generator.css?v=20260924_v5">
   <link rel="stylesheet" href="image-annotator.css">
   <link rel="stylesheet" href="video-marker.css">
   <style>
@@ -709,13 +709,27 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Hasta Bilgileri
           </span>
-          <button class="btn btn-primary btn-sm" onclick="triggerReportGeneration()" style="background:#0284c7;border-color:#0284c7;display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Rapor Oluştur
-          </button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn btn-ghost btn-sm" onclick="clearPatientForm()" title="Hasta formunu temizle ve yeni işlem başlat" style="font-size:11px;padding:4px 8px;">
+              Yeni Hasta
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="triggerReportGeneration()" style="background:#0284c7;border-color:#0284c7;display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Rapor Oluştur
+            </button>
+          </div>
         </div>
         <div class="card-body">
           <div class="patient-form">
+            <div class="field field-full" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+              <label for="saved-patients-dropdown" style="color:var(--primary);font-weight:600;display:flex;align-items:center;gap:4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Kayıtlı Hasta Seç
+              </label>
+              <select id="saved-patients-dropdown" class="room-input" style="width:100%;height:32px;font-size:12px;background:var(--surface);cursor:pointer;" onchange="onPatientSelected(this.value)">
+                <option value="">+ Yeni Hasta / Boş Form</option>
+              </select>
+            </div>
             <div class="field">
               <label for="ctx-patient-id">Hasta No (MRN)</label>
               <input id="ctx-patient-id" type="text" placeholder="örn. 10293847" />
@@ -755,10 +769,6 @@
             Kayıtlar
           </span>
           <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-primary btn-sm" onclick="triggerReportGeneration()" style="background:#0284c7;border-color:#0284c7;display:inline-flex;align-items:center;gap:5px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              Tıbbi Rapor
-            </button>
             <button class="btn btn-ghost btn-sm" onclick="loadCaptures()">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               Yenile
@@ -870,15 +880,22 @@
       camerasGrid.className = 'cameras-grid';
       document.querySelector('.left-col')?.classList.remove('has-multi-cam');
 
-      try {
+        try {
+        // 1. Kamera izni iste (bu aşamada capture card da dahil)
         const permStream = await navigator.mediaDevices.getUserMedia({ video: true });
         permStream.getTracks().forEach(t => t.stop());
+
         if (myToken !== setupToken) return;
 
+        // 2. Sistemdeki TÜM medya cihazlarını listele
         const devices = await navigator.mediaDevices.enumerateDevices();
+
+
         if (myToken !== setupToken) return;
 
+        // 3. Sadece video giriş cihazlarını filtrele (webcam, capture card, her şey)
         const cams = devices.filter(d => d.kind === 'videoinput');
+
         if (cams.length === 0) { setStatus('Hiç kamera bulunamadı.', true); return; }
 
         setStatus(`${cams.length} kamera bulundu, bağlanılıyor…`);
@@ -1314,6 +1331,7 @@
         window.capturesData = data;
         const tbody = document.getElementById('captures-table');
         tbody.innerHTML = '';
+        updateSavedPatientsDropdown(data);
 
         if (data.length === 0) {
           tbody.innerHTML = `<tr><td colspan="7">
@@ -1343,6 +1361,9 @@
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>`
             : '';
+          const repBtn = rec ? '' : `<button class="btn btn-ghost btn-sm" onclick="openReportForItemDirect(${item.id})" title="Bu hastanın tıbbi raporunu aç" style="color:#38bdf8;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </button>`;
 
           tbody.innerHTML += `
             <tr>
@@ -1352,7 +1373,7 @@
               <td>${contextCell(item)}</td>
               <td>${durationCell(item)}</td>
               <td style="color:var(--muted);font-size:12px;white-space:nowrap">${new Date(item.capturedAt).toLocaleString('tr-TR')}</td>
-              <td><div class="actions-cell">${annBtn}${mrkBtn}${refBtn}${delBtn}</div></td>
+              <td><div class="actions-cell">${repBtn}${annBtn}${mrkBtn}${refBtn}${delBtn}</div></td>
             </tr>`;
         });
       } catch(e) { setStatus('Kayıtlar yüklenemedi: '+e.message, true); }
@@ -1381,8 +1402,148 @@
       } catch(e) { setStatus('Bağlantı hatası: '+e.message, true); }
     }
 
+    // ── Saved Patients Dropdown & Selection ─────────────
+    function updateSavedPatientsDropdown(data) {
+      const dropdown = document.getElementById('saved-patients-dropdown');
+      if (!dropdown) return;
+
+      const currentVal = dropdown.value;
+      const patientMap = new Map();
+
+      (data || []).forEach(item => {
+        const id = (item.patientIdentifier || '').trim();
+        const name = (item.patientName || '').trim();
+        if (!id && !name) return;
+
+        const key = id ? `id:${id}` : `name:${name}`;
+        if (!patientMap.has(key)) {
+          patientMap.set(key, {
+            id: id,
+            name: name,
+            doctor: item.doctorName || '',
+            procedure: item.procedureType || '',
+            count: 0
+          });
+        }
+        patientMap.get(key).count++;
+      });
+
+      let optionsHtml = '<option value="">+ Yeni Hasta / Boş Form</option>';
+      patientMap.forEach((p, key) => {
+        const label = (p.id && p.name) 
+          ? `${p.id} — ${p.name} (${p.count} kayıt)`
+          : p.name 
+            ? `${p.name} (${p.count} kayıt)`
+            : `Hasta #${p.id} (${p.count} kayıt)`;
+        optionsHtml += `<option value="${key}">${label}</option>`;
+      });
+
+      dropdown.innerHTML = optionsHtml;
+      if (currentVal && patientMap.has(currentVal)) {
+        dropdown.value = currentVal;
+      } else {
+        dropdown.value = '';
+      }
+    }
+
+    function onPatientSelected(key) {
+      if (!key) {
+        clearPatientForm();
+        return;
+      }
+      const isId = key.startsWith('id:');
+      const rawVal = key.replace(/^(id:|name:)/, '');
+      const item = (window.capturesData || []).find(c => 
+        isId 
+          ? (c.patientIdentifier && c.patientIdentifier.trim().toLowerCase() === rawVal.toLowerCase())
+          : (c.patientName && c.patientName.trim().toLowerCase() === rawVal.toLowerCase())
+      );
+      if (item) {
+        if (document.getElementById('ctx-patient-id')) document.getElementById('ctx-patient-id').value = item.patientIdentifier || '';
+        if (document.getElementById('ctx-patient-name')) document.getElementById('ctx-patient-name').value = item.patientName || '';
+        if (document.getElementById('ctx-doctor-name')) document.getElementById('ctx-doctor-name').value = item.doctorName || '';
+        if (document.getElementById('ctx-procedure-type')) document.getElementById('ctx-procedure-type').value = item.procedureType || '';
+        setStatus(`Hasta seçildi: ${item.patientName || item.patientIdentifier}`);
+      }
+    }
+
+    // ── Clear Patient Form ───────────────────────────────
+    function clearPatientForm() {
+      ['ctx-patient-id', 'ctx-patient-name', 'ctx-doctor-name', 'ctx-procedure-type'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const dropdown = document.getElementById('saved-patients-dropdown');
+      if (dropdown) dropdown.value = '';
+      setStatus('Hasta formu temizlendi. Yeni hasta işlemine hazır.');
+    }
+
+    // ── Open Report for specific item / patient directly ──
+    function openReportForItemDirect(id) {
+      const item = (window.capturesData || []).find(c => c.id === id);
+      if (!item) return;
+
+      const pId = (item.patientIdentifier || '').trim();
+      const pName = (item.patientName || '').trim();
+      const doc = item.doctorName || '';
+      const proc = item.procedureType || '';
+      const room = item.roomName || (baseRoomId ? baseRoomId() : 'oda1');
+
+      // Form alanlarını da bu hastaya göre doldur
+      if (document.getElementById('ctx-patient-id')) document.getElementById('ctx-patient-id').value = pId;
+      if (document.getElementById('ctx-patient-name')) document.getElementById('ctx-patient-name').value = pName;
+      if (document.getElementById('ctx-doctor-name')) document.getElementById('ctx-doctor-name').value = doc;
+      if (document.getElementById('ctx-procedure-type')) document.getElementById('ctx-procedure-type').value = proc;
+
+      // Dropdown'ı da güncelle
+      const dropdown = document.getElementById('saved-patients-dropdown');
+      if (dropdown) {
+        const key = pId ? `id:${pId}` : (pName ? `name:${pName}` : '');
+        if (key) dropdown.value = key;
+      }
+
+      // Bu hastaya ait fotoğrafları bul
+      const allPhotos = (window.capturesData || []).filter(c => c.captureType === 'photo');
+      let patientPhotos = [];
+      if (pId) {
+        patientPhotos = allPhotos.filter(c => (c.patientIdentifier || '').trim().toLowerCase() === pId.toLowerCase());
+      } else if (pName) {
+        patientPhotos = allPhotos.filter(c => (c.patientName || '').trim().toLowerCase() === pName.toLowerCase());
+      } else {
+        patientPhotos = item.captureType === 'photo' ? [item] : [];
+      }
+
+      if (window.MedicalReport) {
+        window.MedicalReport.open({
+          patientIdentifier: pId,
+          patientName: pName,
+          doctorName: doc,
+          procedureType: proc,
+          createdByName: item.createdByName || '',
+          roomName: room,
+          captures: patientPhotos
+        });
+      } else {
+        alert('Rapor motoru yükleniyor, lütfen birkaç saniye sonra tekrar deneyin.');
+      }
+    }
+
     // ── Medical Report Trigger ───────────────────────────
     function triggerReportGeneration() {
+      const dropdown = document.getElementById('saved-patients-dropdown');
+      const selectedKey = dropdown?.value;
+
+      if (!selectedKey) {
+        alert('Rapor oluşturabilmek için lütfen "Kayıtlı Hasta Seç" açılır kutusundan bir hasta seçin.');
+        if (dropdown) {
+          dropdown.focus();
+          dropdown.style.borderColor = 'var(--primary)';
+        }
+        return;
+      }
+
+      const isId = selectedKey.startsWith('id:');
+      const rawVal = selectedKey.replace(/^(id:|name:)/, '');
       const patientId = document.getElementById('ctx-patient-id')?.value.trim();
       const patientName = document.getElementById('ctx-patient-name')?.value.trim();
       const doctorName = document.getElementById('ctx-doctor-name')?.value.trim();
@@ -1390,8 +1551,13 @@
       const createdByName = document.getElementById('ctx-created-by')?.value.trim();
       const roomId = typeof activeRoomId !== 'undefined' ? activeRoomId : (baseRoomId ? baseRoomId() : 'oda1');
 
-      // Filter photos from capturesData
-      const photos = (window.capturesData || []).filter(c => c.captureType === 'photo');
+      // Filter photos from capturesData strictly for this selected patient
+      const allPhotos = (window.capturesData || []).filter(c => c.captureType === 'photo');
+      const photos = allPhotos.filter(c => 
+        isId 
+          ? (c.patientIdentifier && c.patientIdentifier.trim().toLowerCase() === rawVal.toLowerCase())
+          : (c.patientName && c.patientName.trim().toLowerCase() === rawVal.toLowerCase())
+      );
 
       if (window.MedicalReport) {
         window.MedicalReport.open({
@@ -1434,8 +1600,8 @@
     loadCaptures();
   </script>
   <script src="html2pdf.bundle.min.js"></script>
-  <script src="video-marker.js"></script>
-  <script src="report-generator.js"></script>
-  <script src="image-annotator.js"></script>
+  <script src="video-marker.js?v=20260924_v3"></script>
+  <script src="report-generator.js?v=20260924_v3"></script>
+  <script src="image-annotator.js?v=20260924_v3"></script>
 </body>
 </html>

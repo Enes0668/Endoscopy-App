@@ -367,6 +367,14 @@
           if (target) {
             target.textContent = customFn ? customFn(val) : (val || '—');
           }
+          if (inpId === 'rep-inp-indication') {
+            const wrap = document.getElementById('sheet-indication-wrap');
+            if (wrap) wrap.style.display = val ? 'block' : 'none';
+          }
+          if (inpId === 'rep-inp-recommendations') {
+            const wrap = document.getElementById('sheet-rec-wrap');
+            if (wrap) wrap.style.display = val ? 'block' : 'none';
+          }
         };
         inp.addEventListener('input', update);
       });
@@ -385,6 +393,8 @@
           if (tpl.indication) {
             document.getElementById('rep-inp-indication').value = tpl.indication;
             document.getElementById('sheet-preview-indication').textContent = tpl.indication;
+            const wrap = document.getElementById('sheet-indication-wrap');
+            if (wrap) wrap.style.display = 'block';
           }
           if (tpl.findings) {
             document.getElementById('rep-inp-findings').value = tpl.findings;
@@ -397,6 +407,8 @@
           if (tpl.recommendations) {
             document.getElementById('rep-inp-recommendations').value = tpl.recommendations;
             document.getElementById('sheet-preview-recommendations').textContent = tpl.recommendations;
+            const wrap = document.getElementById('sheet-rec-wrap');
+            if (wrap) wrap.style.display = 'block';
           }
         });
       });
@@ -456,8 +468,11 @@
       document.getElementById('rep-inp-patient-meta').value = options.patientMeta || '';
       document.getElementById('sheet-preview-patient-meta').textContent = options.patientMeta || '—';
 
-      document.getElementById('rep-inp-indication').value = options.indication || '';
-      document.getElementById('sheet-preview-indication').textContent = options.indication || '—';
+      const indVal = options.indication || '';
+      document.getElementById('rep-inp-indication').value = indVal;
+      document.getElementById('sheet-preview-indication').textContent = indVal || '—';
+      const indWrap = document.getElementById('sheet-indication-wrap');
+      if (indWrap) indWrap.style.display = indVal ? 'block' : 'none';
 
       document.getElementById('rep-inp-findings').value = options.findings || '';
       document.getElementById('sheet-preview-findings').textContent = options.findings || '—';
@@ -465,14 +480,18 @@
       document.getElementById('rep-inp-diagnosis').value = options.diagnosis || '';
       document.getElementById('sheet-preview-diagnosis').textContent = options.diagnosis || '—';
 
-      document.getElementById('rep-inp-recommendations').value = options.recommendations || '';
-      document.getElementById('sheet-preview-recommendations').textContent = options.recommendations || '—';
+      const recVal = options.recommendations || '';
+      document.getElementById('rep-inp-recommendations').value = recVal;
+      document.getElementById('sheet-preview-recommendations').textContent = recVal || '—';
+      const recWrap = document.getElementById('sheet-rec-wrap');
+      if (recWrap) recWrap.style.display = recVal ? 'block' : 'none';
 
       // Fotoğrafları hazırla (sadece photo türündekiler)
       let photoList = (options.captures || []).filter(c => c.captureType === 'photo' || (c.filePath && c.filePath.match(/\.(jpg|jpeg|png)$/i)));
       
-      // Eğer hiç fotoğraf verilmediyse sayfadaki mevcut tablodan çekmeyi dene
-      if (photoList.length === 0 && window.capturesData) {
+      // Eğer hiç fotoğraf verilmediyse ve spesifik bir hasta belirtilmemişse sayfadaki mevcut tablodan çekmeyi dene
+      const hasSpecificPatient = Boolean((options.patientIdentifier || '').trim() || (options.patientName || '').trim());
+      if (photoList.length === 0 && !hasSpecificPatient && window.capturesData) {
         photoList = window.capturesData.filter(c => c.captureType === 'photo');
       }
 
@@ -598,7 +617,7 @@
 
       if (typeof window.html2pdf === 'function') {
         const opt = {
-          margin: [8, 8, 8, 8],
+          margin: 0,
           filename: fileName,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
@@ -607,7 +626,8 @@
             logging: false,
             letterRendering: true
           },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
         window.html2pdf().set(opt).from(sheet).save().then(() => {
@@ -628,10 +648,26 @@
     }
 
     async importVideoMarkersToFindings() {
-      // Mevcut hastaya/odaya ait videoları bul
-      const videos = (window.capturesData || window.adminCaptures || []).filter(c => c.captureType === 'video');
+      // Mevcut hastaya ait videoları filtrele
+      const allVideos = (window.capturesData || window.adminCaptures || []).filter(c => c.captureType === 'video');
+      const curPatientId = (this.currentData?.patientIdentifier || '').trim().toLowerCase();
+      const curPatientName = (this.currentData?.patientName || '').trim().toLowerCase();
+
+      let videos = allVideos;
+      if (curPatientId) {
+        const pVideos = allVideos.filter(v => (v.patientIdentifier || '').trim().toLowerCase() === curPatientId);
+        if (pVideos.length > 0) videos = pVideos;
+        else if (curPatientName) {
+          const nVideos = allVideos.filter(v => (v.patientName || '').trim().toLowerCase() === curPatientName);
+          if (nVideos.length > 0) videos = nVideos;
+        }
+      } else if (curPatientName) {
+        const nVideos = allVideos.filter(v => (v.patientName || '').trim().toLowerCase() === curPatientName);
+        if (nVideos.length > 0) videos = nVideos;
+      }
+
       if (videos.length === 0) {
-        alert('Aktarılacak video kaydı bulunamadı.');
+        alert('Bu hasta için aktarılacak video kaydı bulunamadı.');
         return;
       }
 

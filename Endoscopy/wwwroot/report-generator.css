@@ -320,16 +320,18 @@
 .medical-report-sheet {
   width: 210mm;
   min-height: 297mm;
+  max-height: 297mm;
   background: #ffffff;
   color: #1e293b;
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  padding: 12mm 16mm;
+  padding: 8mm 12mm;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  line-height: 1.35;
+  line-height: 1.25;
+  overflow: hidden;
 }
 
 /* Sheet Header */
@@ -337,32 +339,32 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 2.5px solid #0284c7;
-  padding-bottom: 10px;
-  margin-bottom: 12px;
+  border-bottom: 2px solid #0284c7;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .sheet-logo-area {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .sheet-cross-icon {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   background: #0284c7;
   color: #ffffff;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 900;
 }
 
 .sheet-institution-title {
-  font-size: 15pt;
+  font-size: 12pt;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.3px;
@@ -370,23 +372,23 @@
 }
 
 .sheet-unit-subtitle {
-  font-size: 10.5pt;
+  font-size: 8.5pt;
   font-weight: 700;
   color: #0284c7;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .sheet-unit-contact {
-  font-size: 8.5pt;
+  font-size: 7pt;
   color: #64748b;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .sheet-meta-area {
   text-align: right;
-  font-size: 8.5pt;
+  font-size: 7.5pt;
   color: #475569;
 }
 
@@ -395,27 +397,27 @@
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
-  padding: 3px 8px;
+  padding: 1px 5px;
   font-weight: 700;
   color: #0f172a;
-  font-size: 9pt;
-  margin-bottom: 4px;
+  font-size: 7.5pt;
+  margin-bottom: 2px;
 }
 
 /* Patient Demographic Table */
 .sheet-patient-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 14px;
-  font-size: 9.5pt;
+  margin-bottom: 6px;
+  font-size: 8pt;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .sheet-patient-table td {
-  padding: 5px 10px;
+  padding: 2.5px 6px;
   border: 1px solid #e2e8f0;
 }
 
@@ -434,31 +436,36 @@
 
 /* Section Titles in Sheet */
 .sheet-section-title {
-  font-size: 10pt;
+  font-size: 8.5pt;
   font-weight: 700;
   color: #0284c7;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-left: 3px solid #0284c7;
-  padding-left: 8px;
-  margin: 10px 0 6px 0;
+  padding-left: 5px;
+  margin: 4px 0 2px 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* Endoscopic Images Grid in Sheet */
 .sheet-images-grid {
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 4px;
+  margin-bottom: 5px;
   width: 100%;
 }
 
-.sheet-images-grid.grid-1 { grid-template-columns: 1fr; max-width: 300px; margin: 0 auto 12px auto; }
+/* 1 photo: full width, moderate height */
+.sheet-images-grid.grid-1 { grid-template-columns: 1fr; max-width: 280px; margin: 0 auto 5px auto; }
+/* 2 photos: side by side, comfortable */
 .sheet-images-grid.grid-2 { grid-template-columns: 1fr 1fr; }
+/* 3 photos: 3 columns */
 .sheet-images-grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
-.sheet-images-grid.grid-4 { grid-template-columns: 1fr 1fr; }
+/* 4 photos: 2x2 grid — MUCH bigger than 4-in-a-row */
+.sheet-images-grid.grid-4 { grid-template-columns: repeat(2, 1fr); }
+/* 6 photos: 3x2 */
 .sheet-images-grid.grid-6 { grid-template-columns: repeat(3, 1fr); }
 
 .sheet-img-card {
@@ -472,51 +479,61 @@
 
 .sheet-img-card img {
   width: 100%;
-  height: auto;
-  aspect-ratio: 4/3;
   object-fit: cover;
   display: block;
 }
 
+/* Per-grid image heights — balances visibility vs. A4 space */
+.sheet-images-grid.grid-1 .sheet-img-card img  { height: 200px; }
+.sheet-images-grid.grid-2 .sheet-img-card img  { height: 160px; }
+.sheet-images-grid.grid-3 .sheet-img-card img  { height: 110px; }
+.sheet-images-grid.grid-4 .sheet-img-card img  { height: 130px; } /* 2x2: 2 rows × ~130px = ~270px total */
+.sheet-images-grid.grid-6 .sheet-img-card img  { height: 90px; }  /* 3x2: 2 rows × ~90px  = ~190px total */
+
+
+
 .sheet-img-caption {
   background: #f8fafc;
   color: #334155;
-  font-size: 8pt;
+  font-size: 6.5pt;
   font-weight: 600;
-  padding: 3px 6px;
+  padding: 1px 3px;
   text-align: center;
   border-top: 1px solid #e2e8f0;
-  min-height: 18px;
+  min-height: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Findings and Diagnosis */
 .sheet-text-block {
-  font-size: 9.5pt;
+  font-size: 8.5pt;
   color: #1e293b;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   white-space: pre-wrap;
-  line-height: 1.4;
-  padding: 0 4px;
+  line-height: 1.3;
+  padding: 0 2px;
 }
 
 .sheet-diagnosis-box {
   background: #f0f9ff;
   border: 1.5px solid #0284c7;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
 }
 
 .sheet-diagnosis-box .box-title {
-  font-size: 9.5pt;
+  font-size: 8pt;
   font-weight: 800;
   color: #0369a1;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   text-transform: uppercase;
 }
 
 .sheet-diagnosis-box .box-content {
-  font-size: 10pt;
+  font-size: 8.5pt;
   font-weight: 700;
   color: #0f172a;
   white-space: pre-wrap;
@@ -525,18 +542,18 @@
 /* Sheet Footer: Doctor signature and disclaimer */
 .sheet-footer {
   border-top: 1px solid #e2e8f0;
-  padding-top: 10px;
-  margin-top: 12px;
+  padding-top: 6px;
+  margin-top: 6px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
 }
 
 .sheet-disclaimer {
-  font-size: 8pt;
+  font-size: 7pt;
   color: #94a3b8;
   max-width: 55%;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .sheet-signature-box {
@@ -551,16 +568,16 @@
 }
 
 .sheet-sig-title {
-  font-size: 8.5pt;
+  font-size: 8pt;
   color: #64748b;
-  margin-bottom: 30px;
+  margin-bottom: 16px;
 }
 
 .sheet-sig-line {
   border-top: 1px solid #0f172a;
-  margin-top: 30px;
+  margin-top: 16px;
   padding-top: 3px;
-  font-size: 8pt;
+  font-size: 7.5pt;
   color: #64748b;
 }
 
